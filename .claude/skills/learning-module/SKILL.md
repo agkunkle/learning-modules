@@ -61,7 +61,7 @@ kit.py new <module>
 kit.py excerpt <module> <id> <file> <a-b> [--rev <commit>]
 kit.py excerpt <module> <id> <file> --diff <rev or a...b>
 kit.py build <module>
-kit.py check <module> [--reveal] [--theme light|dark] [--only pages,clips,diagrams] [--no-shots]
+kit.py check <module> [--reveal] [--theme light|dark] [--only pages,clips,diagrams,pics] [--no-shots]
 kit.py publish <module> [--force]
 kit.py unpublish <module>
 ```
@@ -78,7 +78,8 @@ project visibility is private: change it in Team settings > General > Visitor ac
 
 `check` exits 1 on JS errors, problems or self-test failures. It replaces `<module>/check/`
 (its own output only) with `report.json`, `frames/` and the sheets: `pages_N.jpg`,
-`clip_<name>.jpg` (one frame per caption), `diagram_<name>.jpg` (overview + every flow step).
+`clip_<name>.jpg` (one frame per caption), `diagram_<name>.jpg` (overview + every flow step),
+`pics.jpg` (every picture, solo).
 
 ## Spec reference
 
@@ -93,6 +94,7 @@ sidebar. `data-num="none"` = unnumbered (use for `intro` and `review`). Placehol
 | `<div data-code="ref" data-lines="a-b" data-notes="key\|none" data-caption="...">` | annotated code |
 | `<div data-check="id">` | a check |
 | `<div data-clip="name">` | a clip player |
+| `<div data-pic="name">` (`class="side"`: floated right, prose wraps; `"wide"`: wide column) | a static drawing, at most its natural size |
 | `<div class="wide" data-diagram="name">` | an interactive diagram |
 | `<div data-summary="all\|<section id>">` | score summary |
 
@@ -130,12 +132,19 @@ Notes default to the excerpt id only when no `data-lines` is given. Prose helper
   `purple` only with direct labels), status `green` (pass), `red` (fail), `amber` (warning),
   `yellow` = the highlighter ("look here now"), plus `fg, grey, dim, bg, panel`.
   Captions over 90 characters get a warning. The stage is always dark.
+- `PICS = {name: {alt, caption?, width?=800, height?=500, draw(g, paint)}}`: static SVG drawings
+  (cartoons, spot illustrations) that sit in the prose. `draw` builds into `g` with `el` and
+  colours with `paint.ink` / `paint.paper` / `paint.muted` (and `paint.good` / `paint.crit`
+  for a status word beside its ✓ or ✗), set as style properties
+  (`e.style.fill = paint.paper`), so the drawing follows the page theme; plain hex stays fixed.
+  The colour rules apply: no yellow, no blue. A drawing reused in a clip takes the colours as
+  parameters (in a clip, ink = `COLORS.fg`, paper = `COLORS.bg`).
 
 ### Hash parameters (for debugging and screenshots)
 
 `#reveal`, `#theme=light|dark`, `#at=<section id>`, `#y=<px>`, `#debug` (JSON report in
 `<pre id="kit-report">`), `#solo=clip:<name>&t=<s>`,
-`#solo=diagram:<name>&flow=<i>&step=<k>&node=<id>`, `#solo=check:<id>`, `#solo=code:<ref>`.
+`#solo=diagram:<name>&flow=<i>&step=<k>&node=<id>`, `#solo=check:<id>`, `#solo=code:<ref>`, `#solo=pic:<name>`.
 
 ## Visual design
 

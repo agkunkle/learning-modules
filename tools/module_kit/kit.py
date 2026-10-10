@@ -6,7 +6,7 @@
   kit.py excerpt <module> <id> <file> --diff <rev>  snapshot `git diff <rev> -- <file>` instead
       add --rev <commit> to take the lines from a commit instead of the working tree
   kit.py build <module>                             -> <module>/dist/<module name>.html
-  kit.py check <module> [--reveal] [--theme dark] [--only pages,clips,diagrams] [--no-shots]
+  kit.py check <module> [--reveal] [--theme dark] [--only pages,clips,diagrams,pics] [--no-shots]
       build, open it in headless Chrome, report problems, JS errors and the check self-test,
       and write review sheets (pages, every clip caption, every diagram flow step) to
       <module>/check/
@@ -52,6 +52,8 @@ LANGS = {".py": "python", ".sh": "bash", ".bash": "bash", ".json": "json", ".ps1
 PAGE_W, PAGE_H = 1440, 900       # page screenshots: tiles of one browser window
 PAGE_CHUNK = 12000               # tallest window per page shot (Chrome copes with ~16k)
 CLIP_W, CLIP_H = 1280, 800       # solo clip screenshots
+PIC_W, PIC_H = 900, 640          # solo picture screenshots
+ONLY_ALL = ("pages", "clips", "diagrams", "pics")  # what check screenshots by default
 SHEET_PAGES = 6                  # page shots per sheet
 NETLIFY_API = "https://api.netlify.com/api/v1"
 TOKEN_FILE = Path.home() / ".config" / "netlify" / "token"
@@ -221,7 +223,7 @@ def read_report(chrome, page):
   return report, errors
 
 
-def shot_plan(report, only=("pages", "clips", "diagrams"), reveal=False, theme=None):
+def shot_plan(report, only=ONLY_ALL, reveal=False, theme=None):
   """[(sheet name, label, fragment dict, (w, h))] for every screenshot to take."""
   plan = []
   common = {"reveal": reveal, "theme": theme}
@@ -242,6 +244,9 @@ def shot_plan(report, only=("pages", "clips", "diagrams"), reveal=False, theme=N
         for k in range(flow["steps"]):
           plan.append((f"diagram_{name}", f"flow {fi + 1} step {k + 1}",
                        {**common, "solo": f"diagram:{name}", "flow": fi, "step": k}, (PAGE_W, PAGE_H)))
+  if "pics" in only:
+    for name in report.get("pics", []):
+      plan.append(("pics", name, {**common, "solo": f"pic:{name}"}, (PIC_W, PIC_H)))
   return plan
 
 
@@ -291,7 +296,7 @@ def slice_tiles(png, y0):
   return out
 
 
-def check(module, only=("pages", "clips", "diagrams"), reveal=False, theme=None, shots=True, jobs=4):
+def check(module, only=ONLY_ALL, reveal=False, theme=None, shots=True, jobs=4):
   """Build and inspect. Returns 0 when the page is clean, else 1."""
   module = Path(module)
   page = build(module)
@@ -308,6 +313,7 @@ def check(module, only=("pages", "clips", "diagrams"), reveal=False, theme=None,
     kinds[k] = kinds.get(k, 0) + 1
   print(f"{report['title']}: {len(report['sections'])} sections, {len(report['checks'])} checks "
         f"{kinds}, {len(report['clips'])} clips, {len(report['diagrams'])} diagrams, "
+        f"{len(report.get('pics', []))} pics, "
         f"page height {report['height']} px")
   for s in report["sections"]:
     print(f"  {s['id']:<24} {len(s['checks'])} checks  {s['title']}")
@@ -474,7 +480,7 @@ def main(argv=None):
   p.add_argument("--rev", help="take the lines from this commit, not the working tree")
   p = sub.add_parser("check")
   p.add_argument("module")
-  p.add_argument("--only", default="pages,clips,diagrams")
+  p.add_argument("--only", default=",".join(ONLY_ALL))
   p.add_argument("--reveal", action="store_true", help="page shots with every answer shown")
   p.add_argument("--theme", choices=("light", "dark"))
   p.add_argument("--no-shots", action="store_true")

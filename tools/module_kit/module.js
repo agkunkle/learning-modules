@@ -5,12 +5,13 @@
 //   NOTES     {key: [[line or "a-b", html], ...]}                  (code annotations, in order)
 //   CLIPS     {name: {title, scenes: [{title, build(g, b) -> render(t)}]}}  (explainer engine)
 //   DIAGRAMS  {name: {width, height, nodes, edges, groups, flows, intro}}
+//   PICS      {name: {alt, caption?, width?, height?, draw(g, paint)}}  (static drawings)
 // The page body (content.html) places them with data-meta, data-code, data-check, data-clip,
-// data-diagram and data-summary elements. Nothing is saved: a reload starts fresh.
+// data-diagram, data-pic and data-summary elements. Nothing is saved: a reload starts fresh.
 //
 // URL hash options (used by `kit.py check`): #debug (publish a JSON report), #reveal (show
 // every answer), #at=<element id>, #y=<scroll px>, #theme=light|dark, #solo=clip:<name>&t=<s>,
-// #solo=diagram:<name>&flow=<i>&step=<k>&node=<id>, #solo=check:<id>, #solo=code:<ref>.
+// #solo=diagram:<name>&flow=<i>&step=<k>&node=<id>, #solo=check:<id>, #solo=code:<ref>, #solo=pic:<name>.
 (() => {
 "use strict";
 
@@ -26,6 +27,7 @@ const CHECKS_ = typeof CHECKS !== "undefined" ? CHECKS : {};
 const NOTES_ = typeof NOTES !== "undefined" ? NOTES : {};
 const CLIPS_ = typeof CLIPS !== "undefined" ? CLIPS : {};
 const DIAGRAMS_ = typeof DIAGRAMS !== "undefined" ? DIAGRAMS : {};
+const PICS_ = typeof PICS !== "undefined" ? PICS : {};
 const EXCERPTS_ = typeof EXCERPTS !== "undefined" ? EXCERPTS : {};
 void G;
 
@@ -783,6 +785,31 @@ function make_diagram(name, def, host) {
 // Header, sidebar, progress, summaries.
 // ---------------------------------------------------------------------------------------------
 
+// ---- Pictures: static SVG drawings that follow the page theme ----
+// draw(g, paint) draws into an SVG group. paint holds theme colours that work as fill or stroke
+// values: ink (currentColor: the text colour), paper (the page), muted (secondary text), and
+// good / crit (status text colours, for a word next to a ✓ or ✗).
+// Set them as style properties (e.style.fill = paint.paper): var() is not valid in every
+// browser's SVG presentation attributes. Fixed colours (a cat's fur) can be plain hex.
+const PIC_PAINT = { ink: "currentColor", paper: "var(--paper)", muted: "var(--graphite)",
+                    good: "var(--good-text)", crit: "var(--crit-text)" };
+const PIC_NAMES = [];
+
+function make_pic(name, def, host) {
+  if (!def.alt) throw new Error("needs alt text (alt)");
+  if (typeof def.draw !== "function") throw new Error("needs draw(g, paint)");
+  const w = def.width || 800;
+  const svg = el("svg", { viewBox: `0 0 ${w} ${def.height || 500}`, role: "img",
+                          "aria-label": def.alt });
+  svg.style.maxWidth = `${w}px`;  // natural size at most: one viewBox unit = one CSS pixel
+  def.draw(el("g", {}, svg), PIC_PAINT);
+  const cls = ["pic", ...["side", "wide"].filter(c => host.classList.contains(c))].join(" ");
+  const fig = h("figure", { class: cls, id: `pic-${name}` }, svg,
+                def.caption ? h("figcaption", { html: def.caption }) : null);
+  host.replaceWith(fig);
+  PIC_NAMES.push(name);
+}
+
 function render_header(host) {
   const m = META_;
   host.append(h("h1", { text: m.title }));
@@ -902,14 +929,16 @@ function render_summary(host) {
   const revisit = entries.filter(([, st]) => st.first_try === false || st.revealed);
   const title_of = id => { const s = sections.find(x => x.id === id); return s ? (s.dataset.title || s.querySelector("h2")?.textContent || id) : ""; };
   const link = ([id, st]) => h("li", {}, h("a", { href: `#check-${id}`, text: `${title_of(st.section).replace(/^\d+\./, "").trim()}: ${st.prompt.slice(0, 80)}${st.prompt.length > 80 ? "…" : ""}` }));
-  host.replaceChildren(
+  // replaceChildren() prints null and 0 as text, so drop the parts that do not apply.
+  host.replaceChildren(...[
     h("div", { class: "hero" }, h("span", { class: "big", text: `${first} of ${entries.length}` }),
       h("span", { class: "lbl", text: "right on the first try" })),
     h("ul", { class: "counts" }, h("li", { text: `${solved} solved` }),
       h("li", { text: `${shown} answers shown` }), h("li", { text: `${open_.length} not answered yet` })),
     revisit.length ? h("div", {}, h("p", { html: "<b>Worth revisiting:</b>" }), h("ul", {}, revisit.map(link))) : null,
     open_.length && scope !== "all" ? h("div", {}, h("p", { html: "<b>Not answered yet:</b>" }), h("ul", {}, open_.map(link))) : null,
-    !open_.length && !revisit.length && entries.length ? h("p", { text: "Everything right on the first try. Nice work." }) : null);
+    !open_.length && !revisit.length && entries.length ? h("p", { text: "Everything right on the first try. Nice work." }) : null,
+  ].filter(kid => kid instanceof Node));
 }
 
 function changed() {
@@ -961,6 +990,15 @@ $$("[data-clip]").forEach(host => guarded(`clip "${host.dataset.clip}"`, host, (
   if (!def) throw new Error("not defined in CLIPS");
   make_clip(host.dataset.clip, def, host);
 }));
+const pics_placed = new Set();
+$$("[data-pic]").forEach(host => guarded(`pic "${host.dataset.pic}"`, host, () => {
+  const name = host.dataset.pic;
+  if (pics_placed.has(name)) throw new Error("placed twice");
+  pics_placed.add(name);
+  if (!PICS_[name]) throw new Error("not defined in PICS");
+  make_pic(name, PICS_[name], host);
+}));
+Object.keys(PICS_).forEach(n => { if (!pics_placed.has(n)) warn(`pic "${n}" is defined but never placed`); });
 $$("[data-summary]").forEach(host => { host.classList.add("summary", "summary-host"); });
 
 const theme_btn = build_sidebar();
@@ -976,7 +1014,8 @@ if (params.has("reveal")) Object.values(REVEALERS).forEach(r => r());
 const solo = params.get("solo");
 if (solo) {
   const [kind, name] = [solo.slice(0, solo.indexOf(":")), solo.slice(solo.indexOf(":") + 1)];
-  const target = { clip: `#clip-${name}`, diagram: `#diagram-${name}`, check: `#check-${name}` }[kind];
+  const target = { clip: `#clip-${name}`, diagram: `#diagram-${name}`, check: `#check-${name}`,
+                   pic: `#pic-${name}` }[kind];
   let elem = target ? $(target) : null;
   if (kind === "code") elem = $$("figure.code").find(f => f.querySelector(".path")?.textContent.startsWith(EXCERPTS_[name]?.file || "\u0000"));
   if (elem) {
@@ -1011,6 +1050,7 @@ if (params.has("debug")) {
     checks: Object.fromEntries(Object.entries(CHECKS_).map(([id, c]) => [id, c.kind])),
     clips: Object.fromEntries(Object.values(PLAYERS).map(p => [p.name, { total: p.total, scenes: p.scenes, cues: p.cues }])),
     diagrams: Object.fromEntries(Object.entries(DIAGRAM_API).map(([k, d]) => [k, { flows: d.flows, nodes: d.nodes }])),
+    pics: PIC_NAMES,
     selftest: self_test(), problems, warnings,
   };
   document.body.append(h("pre", { id: "kit-report", hidden: true, text: JSON.stringify(report) }));

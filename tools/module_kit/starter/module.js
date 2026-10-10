@@ -1,4 +1,4 @@
-// Module content: META, CHECKS, NOTES, CLIPS, DIAGRAMS. The engine (engine.js) helpers are
+// Module content: META, CHECKS, NOTES, CLIPS, DIAGRAMS, PICS. The engine (engine.js) helpers are
 // available for clip scenes: el, label, box, arrow, code_block, prog, track, Beats, ...
 
 const META = {
@@ -97,5 +97,25 @@ const CLIPS = {
         entry.g.style.opacity = 1 - 0.7 * prog([w_gone[1], w_gone[1] + 0.6], t);
       };
     } }],
+  },
+};
+
+// Static drawings. Use paint.ink / paint.paper / paint.muted as style values so the drawing
+// follows the page theme; plain hex colours stay fixed. Keep yellow and blue out (see module.css).
+const PICS = {
+  stopwatch: {
+    alt: "A stopwatch: every cache entry has a time limit.",
+    caption: "Every entry gets a stopwatch.",
+    width: 300, height: 300,
+    draw(g, paint) {
+      const ink = { fill: "none", "stroke-width": 8, "stroke-linecap": "round" };
+      const face = el("circle", { cx: 150, cy: 165, r: 105, "stroke-width": 8 }, g);
+      Object.assign(face.style, { fill: paint.paper, stroke: paint.ink });
+      for (const d of ["M150 60 v-25", "M125 32 h50", "M150 165 L 205 120"]) {
+        el("path", { d, ...ink }, g).style.stroke = paint.ink;
+      }
+      el("path", { d: "M150 165 m-75 0 a75 75 0 0 1 75 -75", ...ink, "stroke-width": 14 }, g)
+        .style.stroke = "#199e70";
+    },
   },
 };

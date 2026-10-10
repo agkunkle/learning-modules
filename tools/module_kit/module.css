@@ -278,6 +278,24 @@ figure.clip { margin: 2em auto; }
 figure.clip figcaption, figure.diagram figcaption { font: 500 15px/1.4 var(--ui);
   color: var(--graphite); margin-top: 8px; }
 
+/* ---- Pictures: drawings that belong to the prose (not boxed, no motion) ----
+   Default: centred in the reading column, at most its natural size (viewBox units = px).
+   .wide: up to the wide column. .side: a spot drawing floated right with the prose wrapping
+   round it. A section is wider than the column, so the right margin puts the float
+   back on the column's edge. The SVG's currentColor is the ink colour. */
+figure.pic { margin: 1.8em auto; text-align: center; }
+figure.pic svg { display: block; width: 100%; height: auto; margin: 0 auto;
+  color: var(--ink); overflow: visible; }
+figure.pic svg text { font-family: var(--ui); font-weight: 600; }
+figure.pic figcaption { font: 500 15px/1.4 var(--ui); color: var(--graphite); margin-top: 8px; }
+section > figure.pic.side { float: right; width: calc(min(100%, var(--measure)) * 0.45);
+  margin: 0.3em max(0px, calc((100% - var(--measure)) / 2)) 0.8em 1.6em; }
+section { display: flow-root; }
+section > :is(h2, h3, .check, .callout, table, ol.steps, figure:not(.side)) { clear: both; }
+@media (max-width: 640px) {
+  section > figure.pic.side { float: none; width: auto; margin: 1.8em auto; }
+}
+
 /* ---- Interactive diagrams: a schematic you trace with a highlighter ---- */
 figure.diagram { margin: 2em auto; border-top: 3px solid var(--ink);
   border-bottom: 1px solid var(--rule); }
@@ -356,3 +374,4 @@ body.solo #sidebar, body.solo main > :not(.solo-host) { display: none; }
 body.solo main { margin: 0; padding: 0; }
 body.solo .solo-host { max-width: none; margin: 0; padding: 16px; }
 body.solo .solo-host > * { max-width: none; margin: 0; }
+body.solo .solo-host > figure.pic { float: none; width: auto; }

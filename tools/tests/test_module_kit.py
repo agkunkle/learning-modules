@@ -1,6 +1,7 @@
 """Tests for tools/module_kit/kit.py. The Chrome test is skipped when no browser is found."""
 import io
 import json
+import re
 import subprocess
 import sys
 import zipfile
@@ -132,6 +133,7 @@ REPORT = {
   "clips": {"c": {"cues": [{"start": 0, "end": 2, "text": "short"},
                            {"start": 2, "end": 4, "text": "x" * 91}]}},
   "diagrams": {"d": {"flows": [{"title": "f", "steps": 2}]}},
+  "pics": ["p", "q"],
   "sections": [{"id": "intro", "checks": []}, {"id": "body", "checks": []},
                {"id": "more", "checks": ["q"]}],
 }
@@ -145,10 +147,19 @@ def test_shot_plan_chunks_pages_and_covers_every_step():
   assert len([p for p in plan if p[0] == "clip_c"]) == 2
   steps = [p[2].get("step") for p in plan if p[0] == "diagram_d"]
   assert steps == [None, 0, 1]
+  pics = [p for p in plan if p[0] == "pics"]
+  assert [p[2]["solo"] for p in pics] == ["pic:p", "pic:q"]
+  assert pics[0][3] == (kit.PIC_W, kit.PIC_H)
+
+
+def test_shot_plan_tolerates_reports_without_pics():
+  old = {k: v for k, v in REPORT.items() if k != "pics"}
+  assert not [p for p in kit.shot_plan(old) if p[0] == "pics"]
 
 
 def test_shot_plan_only_filters():
   assert {p[0] for p in kit.shot_plan(REPORT, only=("clips",))} == {"clip_c"}
+  assert {p[0] for p in kit.shot_plan(REPORT, only=("pics",))} == {"pics"}
 
 
 def test_lint_flags_long_captions_and_sections_without_checks():
@@ -329,3 +340,17 @@ def test_starter_page_reports_clean_in_chrome(tmp_path):
   assert report["selftest"] and all(t["ok"] for t in report["selftest"])
   assert set(report["checks"].values()) == {"choice", "line", "order", "match"}
   assert report["clips"]["expiry"]["total"] > 5
+  assert report["pics"] == ["stopwatch"]
+  assert report["warnings"] == []
+
+
+@pytest.mark.skipif(not kit.find_chrome(), reason="no Chrome/Chromium")
+def test_summary_has_no_stray_null_text(tmp_path):
+  mod = tmp_path / "demo"
+  kit.new_module(mod)
+  res = kit.run_chrome(kit.find_chrome(), kit.page_url(kit.build(mod)),
+                       f"--window-size={kit.PAGE_W},{kit.PAGE_H}", "--dump-dom")
+  m = re.search(r'<div[^>]*data-summary="all"[^>]*>(.*?)</section>', res.stdout, re.DOTALL)
+  assert m and "right on the first try" in m.group(1)
+  text = re.sub(r"<[^>]+>", " ", m.group(1))
+  assert "null" not in text

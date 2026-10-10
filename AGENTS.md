@@ -24,8 +24,9 @@ How-to and spec: the `learning-module` skill (`.claude/skills/learning-module/SK
 
 ## Layout
 ```
-tools/module_kit/      kit.py, engine.js (clip engine), module.js (runtime), module.css,
-                       shell.html, starter/, fonts/ (embedded OFL web fonts)
+tools/module_kit/      kit.py, engine.js (clip engine), pics_lib.js (drawing helpers, PIC_KIT),
+                       module.js (runtime), module.css, shell.html, starter/,
+                       fonts/ (embedded OFL web fonts)
 tools/tests/           pytest tests for the kit
 tools/check_setup.sh   toolchain check (Ubuntu)
 <module>/
@@ -52,7 +53,8 @@ tools/check_setup.sh   toolchain check (Ubuntu)
 2. `kit.py new <module>`; research brief via a subagent; outline in `plan.md` -> user approval
 3. `kit.py excerpt ...` for each excerpt
 4. write `module/content.html` + `module/module.js`
-5. `kit.py check <module>`; review sheets; iterate
+5. `kit.py check <module>`; fix every WARN; review sheets; confirm fixes with `kit.py shot`;
+   full `check` again at the end
 6. commit `dist/<module>.html`; link it where readers will find it (e.g. a CR description)
 7. optional, on request: `kit.py publish <module>` for a public Netlify link
 

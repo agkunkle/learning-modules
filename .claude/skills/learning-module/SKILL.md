@@ -12,7 +12,7 @@ One module = one self-contained HTML file (`<module>/dist/<module>.html`, no net
 storage). The reader scrolls one page with a sticky table of contents, and answers checks as
 they go. Results are self-check only: nothing is saved or sent.
 
-Tools: `tools/module_kit/kit.py` (`new`, `excerpt`, `build`, `check`). Setup:
+Tools: `tools/module_kit/kit.py` (`new`, `excerpt`, `build`, `check`, `shot`, `publish`). Setup:
 `tools/check_setup.sh`. Tests: `python3 -m pytest tools/tests`.
 
 ## Workflow
@@ -21,11 +21,18 @@ Tools: `tools/module_kit/kit.py` (`new`, `excerpt`, `build`, `check`). Setup:
    - *onboarding*: a codebase (pilot: `robodog_onboarding/`);
    - *change*: one PR or diff, linked from the CR description. The reader is a reviewer who
      "knows nothing about this". Goal: context and confidence before they read the diff;
-   - *concept*: a technical idea, with code as examples.
+   - *concept*: a technical idea, with code as examples;
+   - *practical*: a hands-on skill with no code (pilot: `cat_teeth_brushing/`). Sources are web
+     pages, not a repo; pictures and clips carry what code excerpts would.
 2. **Research brief.** Send a subagent (read-only) to write `<module>/research/brief.md`:
    package map, main flows with `file:line`, key abstractions, how to change things, tests,
    conventions, 10-12 excerpt candidates, 8 quiz items with right and wrong answers and why,
    glossary, gotchas, doc/code disagreements. Read all of it yourself.
+   For a *practical* module, ask instead for: numbered sources `[S#]` (title, URL, access
+   date, how authoritative); every claim tagged with its sources; disagreements between sources
+   as `D#` (say which the module should follow, or "sources differ"); safety facts; 8 quiz
+   items; glossary; and a list of tempting claims with no source (to keep out). Ask for at most
+   about 500 lines: you read all of it, and longer briefs repeat themselves.
 3. **Outline for approval.** `kit.py new <module>` creates `plan.md` from a template. Fill it
    (objectives, sections, rich elements, checks per section, review quiz) and **show it to the
    user before you build**. (The robodog pilot was the only exception.)
@@ -33,9 +40,13 @@ Tools: `tools/module_kit/kit.py` (`new`, `excerpt`, `build`, `check`). Setup:
    Pick one version and use `--rev <commit>` so line numbers match it; say the commit in
    `META.source`. Excerpts are not re-checked later (by design).
 5. **Write** `module/module.js` and `module/content.html` (spec below).
-6. **Check** and look: `kit.py check <module>`, then `--reveal --theme dark`. Open every sheet
-   in `<module>/check/`. Fix text overflow in clips, crowded diagram labels, and any
-   `PROBLEM`, `SELFTEST FAIL`, `JS ERROR` or `WARN`.
+6. **Check** and look: `kit.py check <module>`, then `--reveal --theme dark`. Fix every
+   `PROBLEM`, `SELFTEST FAIL`, `JS ERROR` and `WARN` first: the page measures itself and warns
+   about captions that wrap, diagram labels cut by a node, picture text under 12 px and icons
+   typed into callout titles. Then open every sheet in `<module>/check/` for what it cannot
+   measure (composition, overlaps inside a drawing, wording). To confirm one fix, use
+   `kit.py shot <module> "solo=clip:<name>&t=<s>"` (several fragments make one sheet) or
+   `check --only <kind>`, not a full check; run the full `check` once more at the end.
 7. **Deliver** `dist/<module>.html` (tracked in git). For a change module, link it from the CR
    description. To share by link, `kit.py publish <module>` (only when the user asks: see
    Publishing).
@@ -62,6 +73,7 @@ kit.py excerpt <module> <id> <file> <a-b> [--rev <commit>]
 kit.py excerpt <module> <id> <file> --diff <rev or a...b>
 kit.py build <module>
 kit.py check <module> [--reveal] [--theme light|dark] [--only pages,clips,diagrams,pics] [--no-shots]
+kit.py shot <module> <fragment>...      e.g. "solo=clip:x&t=4.5" "solo=pic:p&theme=dark" "at=setup"
 kit.py publish <module> [--force]
 kit.py unpublish <module>
 ```
@@ -79,7 +91,9 @@ project visibility is private: change it in Team settings > General > Visitor ac
 `check` exits 1 on JS errors, problems or self-test failures. It replaces `<module>/check/`
 (its own output only) with `report.json`, `frames/` and the sheets: `pages_N.jpg`,
 `clip_<name>.jpg` (one frame per caption), `diagram_<name>.jpg` (overview + every flow step),
-`pics.jpg` (every picture, solo).
+`pics.jpg` (every picture, solo). Frames are named by sheet and label, e.g.
+`frames/clip_brushing_007_t_41.9.png`. With `--only`, it replaces only those kinds and keeps
+the other sheets. `shot` writes to `<module>/check/shots/`.
 
 ## Spec reference
 
@@ -131,7 +145,8 @@ Notes default to the excerpt id only when no `data-lines` is given. Prose helper
   `COLORS`: identity hues `blue, orange, aqua` (validated together, use them in that order; add
   `purple` only with direct labels), status `green` (pass), `red` (fail), `amber` (warning),
   `yellow` = the highlighter ("look here now"), plus `fg, grey, dim, bg, panel`.
-  Captions over 90 characters get a warning. The stage is always dark.
+  A caption that wraps to two lines gets a warning (in practice about 75 characters; the
+  90-character cap also stays). The stage is always dark.
 - `PICS = {name: {alt, caption?, width?=800, height?=500, draw(g, paint)}}`: static SVG drawings
   (cartoons, spot illustrations) that sit in the prose. `draw` builds into `g` with `el` and
   colours with `paint.ink` / `paint.paper` / `paint.muted` (and `paint.good` / `paint.crit`
@@ -139,6 +154,22 @@ Notes default to the excerpt id only when no `data-lines` is given. Prose helper
   (`e.style.fill = paint.paper`), so the drawing follows the page theme; plain hex stays fixed.
   The colour rules apply: no yellow, no blue. A drawing reused in a clip takes the colours as
   parameters (in a clip, ink = `COLORS.fg`, paper = `COLORS.bg`).
+  Shared helpers (`tools/module_kit/pics_lib.js`, one global):
+  `const { ROUND, paint_el, txt, frame, bubble, thought } = PIC_KIT;`. `paint_el(e, fill,
+  stroke)` sets style colours; `txt(g, s, x, y, {size, weight, anchor, fill})`; `frame(g, x, y,
+  s, ox, oy)` places a drawing made around its own origin (ox, oy) at (x, y), scale s;
+  `bubble(..., {speech: true})` is a speech bubble, otherwise a thought bubble.
+  Text: a `side` picture shows at about 45% of the column, so give it text of at least 28 units
+  in a 540-640 unit wide drawing (the page warns under 12 px rendered).
+
+### Pictures and characters
+
+A module with a running character (Oreo in `cat_teeth_brushing/`) gets one drawing function,
+`character(g, pose)`, with 0..1 pose dials (ears, eyes, mouth, ...) and the colours as
+parameters. Pictures call it once; clips call it from `render(t)` with dials computed from t.
+Build it first, check every pose in a scratch gallery module with `kit.py shot` (both themes),
+and only then write the pictures and clips. Fixing the character late means re-checking every
+picture and clip.
 
 ### Hash parameters (for debugging and screenshots)
 
@@ -182,7 +213,7 @@ the kit needs one consistent look. If neither skill is installed, follow the rul
 
 - Scrolled headless screenshots come out blank or garbled. `check` takes tall windows (up to
   12,000 px) and slices them into 900 px tiles. A text row cut by a tile edge looks garbled in
-  the JPEG sheet; open `frames/NNN.png` before you chase it.
+  the JPEG sheet; open the frame in `frames/` before you chase it.
 - Contact sheets used to stretch a chunk's short last tile to full height (giant, smeared text).
   `contact_sheet` now keeps the aspect ratio; if you see stretched text, suspect the sheet first.
 - Python `0 in (None, False)` is `True`. URL builders that drop "false" values must test
@@ -194,6 +225,14 @@ the kit needs one consistent look. If neither skill is installed, follow the rul
 - Researching a project that controls hardware: read only. Do not run its commands, and do not
   run tests that might reach a real device unless the user says so.
 - Teach one committed version. Uncommitted work changes line numbers and behaviour.
+- CHECKS and DIAGRAMS (and PICS, CLIPS) may share ids, e.g. a check `plan_b` and a diagram
+  `plan_b`. A scripted edit that searches for `plan_b: {` can land in the wrong global: search
+  from the global's `const` line.
+- The embedded fonts are ready only at the load event, not while the page script runs. Code
+  that measures text must wait for load (the kit's layout warnings do).
+- After `publish`, run `curl -sI <url>`: `content-type` must be `text/html`. (A zip deploy once
+  served the page as `text/plain`, so browsers showed source; `publish` now uses a file-digest
+  deploy.)
 
 ## Dependencies (Ubuntu 22.04+ or WSL2, with Claude Code)
 

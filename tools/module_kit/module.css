@@ -257,7 +257,6 @@ figure.clip { margin: 2em auto; }
   color: #f2f3f5; font-family: var(--ui); }
 .clip-poster.hidden { display: none; }
 .clip-poster .t { font: 600 4cqw/1.15 var(--ui); text-align: center; padding: 0 8%; }
-.clip-poster .d { font-size: 2cqw; color: #a3abb6; }
 .clip-poster .play { width: 8cqw; height: 8cqw; border-radius: 50%; background: #256abf;
   display: flex; align-items: center; justify-content: center; }
 .clip-poster .play svg { position: static; width: 46%; height: 46%; fill: #fff; margin-left: 8%; }

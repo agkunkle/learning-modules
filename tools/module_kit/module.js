@@ -528,8 +528,7 @@ function make_clip(name, def, host) {
   const svg = el("svg", { viewBox: "0 0 1920 1080", role: "img", "aria-label": `Animation: ${def.title}` });
   const cap_span = h("span");
   const cap = h("div", { class: "clip-cap" }, cap_span);
-  const poster_d = h("div", { class: "d" });
-  const poster = h("div", { class: "clip-poster" }, h("div", { class: "t", text: def.title }), poster_d,
+  const poster = h("div", { class: "clip-poster" }, h("div", { class: "t", text: def.title }),
                    h("div", { class: "play", html: icon("play") }));
   const stage = h("div", { class: "clip-stage fresh", tabindex: 0, role: "button",
                            "aria-label": `Play or pause: ${def.title}` }, svg, cap, poster);
@@ -558,7 +557,6 @@ function make_clip(name, def, host) {
     for (const c of b.cues) cues.push({ ...c, start: c.start + total, end: c.end + total });
     total += dur;
   });
-  poster_d.textContent = `${fmt(total)}, silent, with captions. Click to play.`;
 
   let now = 0, playing = false, last_ts = null, cc = true;
   const scene_at = t => {

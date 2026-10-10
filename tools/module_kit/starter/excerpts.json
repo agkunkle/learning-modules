@@ -1,0 +1,10 @@
+{
+ "ttl_cache": {
+  "file": "cache/ttl_cache.py",
+  "repo": "example",
+  "commit": null,
+  "start": 10,
+  "lang": "python",
+  "text": "class TtlCache:\n  \"\"\"Keeps values for `ttl` seconds.\"\"\"\n\n  def __init__(self, ttl, clock=time.monotonic):\n    self.ttl = ttl\n    self.clock = clock\n    self.items = {}\n\n  def get(self, key):\n    hit = self.items.get(key)\n    if hit is None:\n      return None\n    value, stored_at = hit\n    if self.clock() - stored_at > self.ttl:\n      del self.items[key]\n      return None\n    return value\n\n  def put(self, key, value):\n    self.items[key] = (value, self.clock())"
+ }
+}

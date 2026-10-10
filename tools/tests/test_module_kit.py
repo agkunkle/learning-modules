@@ -1,7 +1,9 @@
 """Tests for tools/module_kit/kit.py. The Chrome test is skipped when no browser is found."""
+import io
 import json
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -194,6 +196,127 @@ def test_kit_fonts_exist_with_licenses():
   names = {p.stem for p in kit.FONTS.glob("*.woff2")}
   assert {"ui-500", "ui-600", "text-400", "text-600", "text-400i", "mono-400", "mono-700"} <= names
   assert len(list(kit.FONTS.glob("OFL_*.txt"))) == 3
+
+
+# ---- publishing (fake Netlify: these tests never touch the network) ------------------------
+
+class FakeNetlify:
+  """Stands in for kit.netlify: records calls and serves canned responses."""
+
+  def __init__(self, sites=(), states=("ready",), sso=False):
+    self.calls, self.sites, self.states, self.sso = [], set(sites), list(states), sso
+
+  def __call__(self, method, path, token, data=None):
+    self.calls.append((method, path, data is not None))
+    parts = path.strip("/").split("/")
+    if method == "POST" and path == "/sites":
+      self.sites.add("s-new")
+      return {"id": "s-new", "deploy_id": "d-new", "ssl_url": None}
+    if parts[0] == "sites" and parts[1] not in self.sites:
+      raise kit.NetlifyError(404, f"{path}: not found")
+    if method == "POST":
+      return {"id": "d-re", "state": "uploaded"}
+    if method == "GET" and parts[0] == "deploys":
+      return {"state": self.states.pop(0) if len(self.states) > 1 else self.states[0]}
+    if method == "GET":
+      return {"ssl_url": f"https://{parts[1]}.netlify.app", "sso_login": self.sso}
+    self.sites.discard(parts[1])
+    return None
+
+
+@pytest.fixture
+def netlify(monkeypatch, tmp_path):
+  def use(**kw):
+    fake = FakeNetlify(**kw)
+    monkeypatch.setattr(kit, "netlify", fake)
+    monkeypatch.setattr(kit, "netlify_token", lambda: "tok")
+    return fake
+  mod = tmp_path / "demo"
+  kit.new_module(mod)
+  return use, mod
+
+
+def test_publish_creates_site_and_writes_log(netlify):
+  use, mod = netlify
+  fake = use(states=("uploaded", "processing", "ready"))
+  rec = kit.publish(mod, sleep=lambda s: None)
+  assert rec["url"] == "https://s-new.netlify.app" and rec["site_id"] == "s-new"
+  assert rec["private"] is False
+  assert fake.calls[0] == ("POST", "/sites", True)
+  polls = [c for c in fake.calls if c[1] == "/deploys/d-new"]
+  assert polls == [("GET", "/deploys/d-new", False)] * 3
+  assert json.loads((mod / "publish.json").read_text())["site_id"] == "s-new"
+  assert (mod / "dist" / "demo.html").exists()  # publish builds first
+
+
+def test_site_zip_serves_page_as_index(tmp_path):
+  page = tmp_path / "p.html"
+  page.write_text("<h1>x</h1>")
+  with zipfile.ZipFile(io.BytesIO(kit.site_zip(page))) as z:
+    assert z.namelist() == ["index.html"] and z.read("index.html") == b"<h1>x</h1>"
+
+
+def test_publish_redeploys_to_logged_site(netlify):
+  use, mod = netlify
+  fake = use(sites=("s-old",))
+  (mod / "publish.json").write_text(json.dumps({"site_id": "s-old", "url": "u"}))
+  rec = kit.publish(mod, sleep=lambda s: None)
+  assert rec["site_id"] == "s-old" and rec["deploy_id"] == "d-re"
+  assert ("POST", "/sites", True) not in fake.calls
+
+
+def test_publish_creates_new_site_when_logged_site_is_gone(netlify):
+  use, mod = netlify
+  fake = use()
+  (mod / "publish.json").write_text(json.dumps({"site_id": "s-gone", "url": "u"}))
+  assert kit.publish(mod, sleep=lambda s: None)["site_id"] == "s-new"
+  assert fake.calls[:2] == [("POST", "/sites/s-gone/deploys", True), ("POST", "/sites", True)]
+
+
+def test_publish_refuses_internal_module_without_force(netlify):
+  use, mod = netlify
+  fake = use()
+  js = mod / "module" / "module.js"
+  js.write_text(js.read_text().replace("internal: false", "internal: true"))
+  with pytest.raises(kit.KitError, match="team-internal"):
+    kit.publish(mod)
+  assert fake.calls == []
+  assert kit.publish(mod, force=True, sleep=lambda s: None)["site_id"] == "s-new"
+
+
+def test_publish_fails_on_deploy_error_and_reports_private_sites(netlify):
+  use, mod = netlify
+  use(states=("error",))
+  with pytest.raises(kit.KitError, match="'error'"):
+    kit.publish(mod, sleep=lambda s: None)
+  assert not (mod / "publish.json").exists()
+  use(sso=True)
+  assert kit.publish(mod, sleep=lambda s: None)["private"] is True
+
+
+def test_unpublish_deletes_site_and_log_and_tolerates_404(netlify):
+  use, mod = netlify
+  fake = use(sites=("s-old",))
+  log = mod / "publish.json"
+  log.write_text(json.dumps({"site_id": "s-old", "url": "u"}))
+  assert kit.unpublish(mod)["site_id"] == "s-old"
+  assert fake.calls == [("DELETE", "/sites/s-old", False)] and not log.exists()
+  log.write_text(json.dumps({"site_id": "s-old", "url": "u"}))  # deleted in the UI meanwhile
+  kit.unpublish(mod)
+  assert not log.exists()
+  with pytest.raises(kit.KitError, match="not published"):
+    kit.unpublish(mod)
+
+
+def test_netlify_token_prefers_env_then_file(monkeypatch, tmp_path):
+  monkeypatch.setattr(kit, "TOKEN_FILE", tmp_path / "token")
+  monkeypatch.delenv("NETLIFY_AUTH_TOKEN", raising=False)
+  with pytest.raises(kit.KitError, match="no Netlify token"):
+    kit.netlify_token()
+  (tmp_path / "token").write_text("from-file\n")
+  assert kit.netlify_token() == "from-file"
+  monkeypatch.setenv("NETLIFY_AUTH_TOKEN", "from-env")
+  assert kit.netlify_token() == "from-env"
 
 
 @pytest.mark.skipif(not kit.find_chrome(), reason="no Chrome/Chromium")

@@ -37,7 +37,8 @@ Tools: `tools/module_kit/kit.py` (`new`, `excerpt`, `build`, `check`). Setup:
    in `<module>/check/`. Fix text overflow in clips, crowded diagram labels, and any
    `PROBLEM`, `SELFTEST FAIL`, `JS ERROR` or `WARN`.
 7. **Deliver** `dist/<module>.html` (tracked in git). For a change module, link it from the CR
-   description.
+   description. To share by link, `kit.py publish <module>` (only when the user asks: see
+   Publishing).
 
 Size: 30-45 min, 6-8 numbered sections, 2-3 checks per section, a review quiz of 6-8 items at
 the end. Write in plain, short sentences (about 80% of ASD-STE100).
@@ -61,7 +62,19 @@ kit.py excerpt <module> <id> <file> <a-b> [--rev <commit>]
 kit.py excerpt <module> <id> <file> --diff <rev or a...b>
 kit.py build <module>
 kit.py check <module> [--reveal] [--theme light|dark] [--only pages,clips,diagrams] [--no-shots]
+kit.py publish <module> [--force]
+kit.py unpublish <module>
 ```
+
+### Publishing
+
+`publish` builds the module, uploads it to Netlify as `index.html` and prints a **public** link
+(anyone with the URL can open it). It writes `<module>/publish.json` (site id, URL; ignored by
+git), so the next `publish` updates the same link and `unpublish` deletes the site. Token:
+`$NETLIFY_AUTH_TOKEN` or `~/.config/netlify/token` (mode 600; never print it). A module with
+`META.internal = true` is refused unless you pass `--force`; use `--force` only when the user
+says so for that module. If `publish` warns that the site is private, the Netlify team's default
+project visibility is private: change it in Team settings > General > Visitor access.
 
 `check` exits 1 on JS errors, problems or self-test failures. It replaces `<module>/check/`
 (its own output only) with `report.json`, `frames/` and the sheets: `pages_N.jpg`,

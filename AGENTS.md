@@ -16,7 +16,8 @@ How-to and spec: the `learning-module` skill (`.claude/skills/learning-module/SK
   before you call a module done.
 - **Ask before deleting files.** Never print or commit secrets.
 - Modules may be team-internal (`META.internal = true`): real hostnames and IPs may stay.
-  Nothing leaves this machine without the user's say.
+  Nothing leaves this machine without the user's say. `kit.py publish` makes a public
+  Netlify link: run it only when the user asks, and `--force` (internal) only on their word.
 - **The GitHub repo (agkunkle/learning-modules) is public.** A module about a private repo, or
   one with internal details, stays local: add its folder to `.gitignore` when you create it.
   Check `git status` for module folders before every commit.
@@ -53,6 +54,7 @@ tools/check_setup.sh   toolchain check (Ubuntu)
 4. write `module/content.html` + `module/module.js`
 5. `kit.py check <module>`; review sheets; iterate
 6. commit `dist/<module>.html`; link it where readers will find it (e.g. a CR description)
+7. optional, on request: `kit.py publish <module>` for a public Netlify link
 
 ## Known pitfalls
 - Headless Chrome screenshots after scrolling are unreliable; `check` uses tall windows sliced

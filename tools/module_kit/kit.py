@@ -10,6 +10,10 @@
       build, open it in headless Chrome, report problems, JS errors and the check self-test,
       and write review sheets (pages, every clip caption, every diagram flow step) to
       <module>/check/
+  kit.py publish <module> [--force]                 build and deploy to Netlify; print the link
+      (public). Redeploys to the same link if <module>/publish.json exists. Refuses a
+      META.internal module without --force. Token: $NETLIFY_AUTH_TOKEN or ~/.config/netlify/token
+  kit.py unpublish <module>                         delete the module's Netlify site
 
 A module's sources live in <module>/module/: content.html (the prose and placeholders),
 module.js (META, CHECKS, NOTES, CLIPS, DIAGRAMS) and excerpts.json (code snapshots).
@@ -17,6 +21,7 @@ module.js (META, CHECKS, NOTES, CLIPS, DIAGRAMS) and excerpts.json (code snapsho
 import argparse
 import base64
 import html
+import io
 import json
 import os
 import re
@@ -24,7 +29,12 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
+import urllib.error
+import urllib.request
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -43,6 +53,9 @@ PAGE_W, PAGE_H = 1440, 900       # page screenshots: tiles of one browser window
 PAGE_CHUNK = 12000               # tallest window per page shot (Chrome copes with ~16k)
 CLIP_W, CLIP_H = 1280, 800       # solo clip screenshots
 SHEET_PAGES = 6                  # page shots per sheet
+NETLIFY_API = "https://api.netlify.com/api/v1"
+TOKEN_FILE = Path.home() / ".config" / "netlify" / "token"
+PUBLISH_LOG = "publish.json"     # <module>/publish.json: the Netlify site of the last publish
 
 
 class KitError(Exception):
@@ -343,6 +356,108 @@ def check(module, only=("pages", "clips", "diagrams"), reveal=False, theme=None,
   return 1 if errors or report["problems"] or bad_tests else 0
 
 
+# ---- publishing (Netlify) ------------------------------------------------------------------
+
+class NetlifyError(KitError):
+  def __init__(self, status, msg):
+    super().__init__(msg)
+    self.status = status
+
+
+def netlify_token():
+  """The token from $NETLIFY_AUTH_TOKEN or TOKEN_FILE. Never print it."""
+  token = os.environ.get("NETLIFY_AUTH_TOKEN", "").strip()
+  if not token and TOKEN_FILE.exists():
+    token = TOKEN_FILE.read_text().strip()
+  if not token:
+    raise KitError(f"no Netlify token: set NETLIFY_AUTH_TOKEN or write it to {TOKEN_FILE}")
+  return token
+
+
+def netlify(method, path, token, data=None):
+  """One Netlify API call (data = a zip body). Returns the parsed JSON, or None if empty."""
+  req = urllib.request.Request(NETLIFY_API + path, data=data, method=method,
+                               headers={"Authorization": f"Bearer {token}"})
+  if data is not None:
+    req.add_header("Content-Type", "application/zip")
+  try:
+    with urllib.request.urlopen(req, timeout=120) as res:
+      body = res.read()
+  except urllib.error.HTTPError as e:
+    detail = e.read()[:200].decode(errors="replace").strip()
+    raise NetlifyError(e.code, f"Netlify {method} {path}: HTTP {e.code} {detail}") from None
+  except urllib.error.URLError as e:
+    raise KitError(f"Netlify {method} {path}: {e.reason}") from None
+  return json.loads(body) if body.strip() else None
+
+
+def is_internal(module):
+  js = (Path(module) / SRC / MODULE_JS).read_text()
+  return re.search(r"\binternal\s*:\s*true\b", js) is not None
+
+
+def site_zip(page):
+  """A zip with the page as index.html, so the site root serves it."""
+  buf = io.BytesIO()
+  with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+    z.writestr("index.html", Path(page).read_bytes())
+  return buf.getvalue()
+
+
+def publish(module, force=False, wait=90, sleep=time.sleep):
+  """Build the module and deploy it to Netlify. A module with a publish log is redeployed to
+  the same site (same link); otherwise a new site is created. Returns the log record."""
+  module = Path(module)
+  if is_internal(module) and not force:
+    raise KitError(f"{module} is team-internal (META.internal = true) and a Netlify link is "
+                   "public; add --force to publish it anyway")
+  page = build(module)
+  token = netlify_token()
+  log_path = module / PUBLISH_LOG
+  old = json.loads(log_path.read_text()) if log_path.exists() else None
+  site_id = deploy_id = None
+  if old:
+    try:
+      deploy_id = netlify("POST", f"/sites/{old['site_id']}/deploys", token, site_zip(page))["id"]
+      site_id = old["site_id"]
+    except NetlifyError as e:
+      if e.status != 404:
+        raise
+  if site_id is None:  # first publish, or the old site was deleted
+    site = netlify("POST", "/sites", token, site_zip(page))
+    site_id, deploy_id = site["id"], site["deploy_id"]
+  state = None
+  for _ in range(max(1, wait // 2)):
+    state = netlify("GET", f"/deploys/{deploy_id}", token)["state"]
+    if state in ("ready", "error"):
+      break
+    sleep(2)
+  if state != "ready":
+    raise KitError(f"Netlify deploy {deploy_id} of site {site_id} ended in state {state!r}")
+  # the create response can lack ssl_url, so read the site back
+  site = netlify("GET", f"/sites/{site_id}", token)
+  rec = {"site_id": site_id, "url": site.get("ssl_url") or site.get("url"),
+         "deploy_id": deploy_id, "private": bool(site.get("sso_login")),
+         "published": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+  log_path.write_text(json.dumps(rec, indent=2) + "\n")
+  return rec
+
+
+def unpublish(module):
+  """Delete the module's Netlify site and its publish log. Returns the old log record."""
+  log_path = Path(module) / PUBLISH_LOG
+  if not log_path.exists():
+    raise KitError(f"{log_path} not found: this module is not published")
+  rec = json.loads(log_path.read_text())
+  try:
+    netlify("DELETE", f"/sites/{rec['site_id']}", netlify_token())
+  except NetlifyError as e:
+    if e.status != 404:  # 404: already deleted (e.g. in the Netlify UI)
+      raise
+  log_path.unlink()
+  return rec
+
+
 # ---- CLI -----------------------------------------------------------------------------------
 
 def main(argv=None):
@@ -364,6 +479,10 @@ def main(argv=None):
   p.add_argument("--theme", choices=("light", "dark"))
   p.add_argument("--no-shots", action="store_true")
   p.add_argument("--jobs", type=int, default=4)
+  p = sub.add_parser("publish")
+  p.add_argument("module")
+  p.add_argument("--force", action="store_true", help="publish a META.internal module too")
+  sub.add_parser("unpublish").add_argument("module")
   args = ap.parse_args(argv)
   try:
     if args.cmd == "new":
@@ -380,6 +499,16 @@ def main(argv=None):
       rec = add_excerpt(args.module, args.id, args.file, lines, args.diff, args.rev)
       print(f"{args.id}: {rec['file']}:{rec['start']} ({len(rec['text'].splitlines())} lines, "
             f"{rec['lang']}, commit {rec['commit']})")
+    elif args.cmd == "publish":
+      rec = publish(args.module, args.force)
+      print(f"published {rec['url']} (site {rec['site_id']})")
+      if rec["private"]:
+        print("warning: the site is private (Netlify team login); set the team's default project "
+              "visibility to public, or make this project public in the Netlify UI",
+              file=sys.stderr)
+    elif args.cmd == "unpublish":
+      rec = unpublish(args.module)
+      print(f"deleted {rec['url']} (site {rec['site_id']})")
     else:
       return check(args.module, tuple(args.only.split(",")), args.reveal, args.theme,
                    not args.no_shots, args.jobs)

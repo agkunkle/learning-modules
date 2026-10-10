@@ -20,8 +20,8 @@ module.js (META, CHECKS, NOTES, CLIPS, DIAGRAMS) and excerpts.json (code snapsho
 """
 import argparse
 import base64
+import hashlib
 import html
-import io
 import json
 import os
 import re
@@ -32,7 +32,6 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
-import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
@@ -381,11 +380,16 @@ def netlify_token():
 
 
 def netlify(method, path, token, data=None):
-  """One Netlify API call (data = a zip body). Returns the parsed JSON, or None if empty."""
-  req = urllib.request.Request(NETLIFY_API + path, data=data, method=method,
+  """One Netlify API call. data: a dict (sent as JSON) or bytes (a file body). Returns the
+  parsed JSON, or None if empty."""
+  req = urllib.request.Request(NETLIFY_API + path, method=method,
                                headers={"Authorization": f"Bearer {token}"})
-  if data is not None:
-    req.add_header("Content-Type", "application/zip")
+  if isinstance(data, dict):
+    req.data = json.dumps(data).encode()
+    req.add_header("Content-Type", "application/json")
+  elif data is not None:
+    req.data = data
+    req.add_header("Content-Type", "application/octet-stream")
   try:
     with urllib.request.urlopen(req, timeout=120) as res:
       body = res.read()
@@ -402,12 +406,10 @@ def is_internal(module):
   return re.search(r"\binternal\s*:\s*true\b", js) is not None
 
 
-def site_zip(page):
-  """A zip with the page as index.html, so the site root serves it."""
-  buf = io.BytesIO()
-  with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-    z.writestr("index.html", Path(page).read_bytes())
-  return buf.getvalue()
+def deploy_manifest(body):
+  """The file-digest deploy body: the page as /index.html, so the site root serves it as HTML.
+  (A zip deploy of the same file came out as "/" with type text/plain: raw source.)"""
+  return {"files": {"/index.html": hashlib.sha1(body).hexdigest()}}
 
 
 def publish(module, force=False, wait=90, sleep=time.sleep):
@@ -421,17 +423,21 @@ def publish(module, force=False, wait=90, sleep=time.sleep):
   token = netlify_token()
   log_path = module / PUBLISH_LOG
   old = json.loads(log_path.read_text()) if log_path.exists() else None
-  site_id = deploy_id = None
+  body = Path(page).read_bytes()
+  site_id = deploy = None
   if old:
     try:
-      deploy_id = netlify("POST", f"/sites/{old['site_id']}/deploys", token, site_zip(page))["id"]
+      deploy = netlify("POST", f"/sites/{old['site_id']}/deploys", token, deploy_manifest(body))
       site_id = old["site_id"]
     except NetlifyError as e:
       if e.status != 404:
         raise
   if site_id is None:  # first publish, or the old site was deleted
-    site = netlify("POST", "/sites", token, site_zip(page))
-    site_id, deploy_id = site["id"], site["deploy_id"]
+    site_id = netlify("POST", "/sites", token, {})["id"]
+    deploy = netlify("POST", f"/sites/{site_id}/deploys", token, deploy_manifest(body))
+  deploy_id = deploy["id"]
+  if deploy.get("required"):  # Netlify lacks this file version: upload it
+    netlify("PUT", f"/deploys/{deploy_id}/files/index.html", token, body)
   state = None
   for _ in range(max(1, wait // 2)):
     state = netlify("GET", f"/deploys/{deploy_id}", token)["state"]

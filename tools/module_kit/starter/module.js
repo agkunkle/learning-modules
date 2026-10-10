@@ -102,6 +102,8 @@ const CLIPS = {
 
 // Static drawings. Use paint.ink / paint.paper / paint.muted as style values so the drawing
 // follows the page theme; plain hex colours stay fixed. Keep yellow and blue out (see module.css).
+// PIC_KIT (tools/module_kit/pics_lib.js) has shared helpers: paint_el, txt, frame, bubble, thought.
+const { paint_el, txt } = PIC_KIT;
 const PICS = {
   stopwatch: {
     alt: "A stopwatch: every cache entry has a time limit.",
@@ -110,12 +112,14 @@ const PICS = {
     draw(g, paint) {
       const ink = { fill: "none", "stroke-width": 8, "stroke-linecap": "round" };
       const face = el("circle", { cx: 150, cy: 165, r: 105, "stroke-width": 8 }, g);
-      Object.assign(face.style, { fill: paint.paper, stroke: paint.ink });
+      paint_el(face, paint.paper, paint.ink);
       for (const d of ["M150 60 v-25", "M125 32 h50", "M150 165 L 205 120"]) {
-        el("path", { d, ...ink }, g).style.stroke = paint.ink;
+        paint_el(el("path", { d, ...ink }, g), undefined, paint.ink);
       }
-      el("path", { d: "M150 165 m-75 0 a75 75 0 0 1 75 -75", ...ink, "stroke-width": 14 }, g)
-        .style.stroke = "#199e70";
+      const arc = el("path", { d: "M150 165 m-75 0 a75 75 0 0 1 75 -75", ...ink, "stroke-width": 14 },
+                     g);
+      paint_el(arc, undefined, "#199e70");
+      txt(g, "TTL", 150, 205, { size: 30, fill: paint.ink });  // text >= 28 units: see SKILL.md
     },
   },
 };

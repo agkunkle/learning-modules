@@ -229,7 +229,8 @@ class FakeNetlify:
       raise kit.NetlifyError(404, f"{path}: not found")
     if method == "POST":
       sha = data["files"]["/index.html"]
-      return {"id": f"d-{parts[1]}", "state": "uploaded", "required": [sha] if self.required else []}
+      required = [sha] if self.required else []
+      return {"id": f"d-{parts[1]}", "state": "uploaded", "required": required}
     if method == "PUT":
       return {"id": "index.html"}
     if method == "GET" and parts[0] == "deploys":
@@ -351,6 +352,84 @@ def test_starter_page_reports_clean_in_chrome(tmp_path):
   assert report["clips"]["expiry"]["total"] > 5
   assert report["pics"] == ["stopwatch"]
   assert report["warnings"] == []
+
+
+def test_frame_names_are_per_sheet_and_readable():
+  assert kit.frame_name("clip_brushing", 7, "t=41.9") == "clip_brushing_007_t_41.9.png"
+  assert kit.frame_name("diagram_map", 2, "flow 1 step 3") == "diagram_map_002_flow_1_step_3.png"
+
+
+def test_clear_check_output_keeps_other_kinds(tmp_path):
+  (tmp_path / "frames").mkdir()
+  names = ["pages_1.jpg", "clip_a.jpg", "diagram_m.jpg", "pics.jpg"]
+  frames = ["pages_000_y_0.png", "clip_a_000_t_1.png", "diagram_m_000_overview.png",
+            "pics_000_p.png"]
+  for n in names:
+    (tmp_path / n).write_text("x")
+  for n in frames:
+    (tmp_path / "frames" / n).write_text("x")
+  kit.clear_check_output(tmp_path, ("clips",))
+  assert sorted(p.name for p in tmp_path.glob("*.jpg")) == ["diagram_m.jpg", "pages_1.jpg",
+                                                            "pics.jpg"]
+  assert not (tmp_path / "frames" / "clip_a_000_t_1.png").exists()
+  assert len(list((tmp_path / "frames").glob("*.png"))) == 3
+
+
+def test_parse_fragment_and_shot_size():
+  frag = kit.parse_fragment("#solo=clip:x&t=4.5&reveal")
+  assert frag == {"solo": "clip:x", "t": "4.5", "reveal": True}
+  assert kit.shot_size(frag) == (kit.CLIP_W, kit.CLIP_H)
+  assert kit.shot_size(kit.parse_fragment("solo=pic:p")) == (kit.PIC_W, kit.PIC_H)
+  assert kit.shot_size(kit.parse_fragment("at=intro")) == (kit.PAGE_W, kit.PAGE_H)
+
+
+@pytest.mark.skipif(not kit.find_chrome(), reason="no Chrome/Chromium")
+def test_shot_writes_one_png_per_fragment_and_a_sheet(tmp_path):
+  mod = tmp_path / "demo"
+  kit.new_module(mod)
+  out = kit.shot(mod, ["solo=pic:stopwatch", "solo=clip:expiry&t=2"])
+  assert [p.name for p in out] == ["shot_000_solo_pic_stopwatch.png",
+                                   "shot_001_solo_clip_expiry_t_2.png", "shots.jpg"]
+  assert all(p.exists() and p.stat().st_size > 1000 for p in out)
+
+
+LAYOUT_FAULTS_JS = """
+CLIPS.wrap = { title: "Wrap", scenes: [{ title: "s", build(g, b) {
+  b.say("Weeks to months is normal. No progress after a few weeks? Get professional help.", 1);
+  return () => {};
+} }] };
+DIAGRAMS.cut = { width: 600, height: 200, nodes: [
+  { id: "a", label: "A", x: 100, y: 100, w: 150, detail: "<p>a</p>" },
+  { id: "b", label: "B", x: 300, y: 100, w: 150, detail: "<p>b</p>" }],
+  edges: [{ from: "a", to: "b", label: "a label much wider than the gap" }] };
+PICS.tiny = { alt: "Tiny text", width: 800, height: 200, draw(g) {
+  el("text", { x: 10, y: 50, "font-size": 14 }, g).textContent = "tiny";
+} };
+"""
+LAYOUT_FAULTS_HTML = """<section id="faults"><h2>Faults</h2>
+  <div class="callout warn"><span class="ttl">⚠ Icon twice</span><p>x</p></div>
+  <div data-pic="tiny" class="side"></div><p>Text beside the picture.</p>
+  <div data-clip="wrap"></div><div data-diagram="cut"></div>
+</section>
+"""
+
+
+@pytest.mark.skipif(not kit.find_chrome(), reason="no Chrome/Chromium")
+def test_layout_lints_flag_wraps_cut_labels_tiny_text_and_double_icons(tmp_path):
+  mod = tmp_path / "demo"
+  kit.new_module(mod)
+  js, html_ = mod / "module" / "module.js", mod / "module" / "content.html"
+  js.write_text(js.read_text() + LAYOUT_FAULTS_JS)
+  html_.write_text(html_.read_text().replace('<section id="review"',
+                                             LAYOUT_FAULTS_HTML + '<section id="review"'))
+  report, errors = kit.read_report(kit.find_chrome(), kit.build(mod))
+  assert errors == [] and report["problems"] == []
+  warns = "\n".join(report["warnings"])
+  assert 'clip wrap: caption wraps to two lines' in warns
+  assert 'edge label "a label much wider than the gap" (a>b) is cut by node' in warns
+  assert "pic tiny: text renders at" in warns
+  assert 'callout "⚠ Icon twice": remove the icon' in warns
+  assert "stopwatch" not in warns and "expiry" not in warns  # the starter itself stays clean
 
 
 @pytest.mark.skipif(not kit.find_chrome(), reason="no Chrome/Chromium")

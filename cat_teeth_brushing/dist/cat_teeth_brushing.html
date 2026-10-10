@@ -871,6 +871,83 @@ class Beats {
   wait(d) { this.t += d; }
 }
 
+// Drawing helpers for PICS and clip scenes. kit.py inlines this file right after engine.js, so
+// it can use el(). It defines one global, PIC_KIT, so its names cannot clash with a module's;
+// a module picks what it needs:
+//   const { ROUND, paint_el, txt, frame, bubble, thought } = PIC_KIT;
+// Colours: pass paint.ink / paint.paper (pictures) or COLORS.fg / COLORS.bg (clips). Keep yellow
+// and blue out of drawings (see module.css).
+const PIC_KIT = (() => {
+  const ROUND = { "stroke-linecap": "round", "stroke-linejoin": "round" };
+
+  // Set fill and stroke as style properties: they accept hex, currentColor and var().
+  function paint_el(e, fill, stroke) {
+    if (fill !== undefined) e.style.fill = fill;
+    if (stroke !== undefined) e.style.stroke = stroke;
+    return e;
+  }
+
+  // One line of text centred on (x, y) by default.
+  function txt(g, s, x, y,
+               { size = 22, weight = 600, anchor = "middle", fill = "currentColor" } = {}) {
+    const t = el("text", { x, y, "text-anchor": anchor, "dominant-baseline": "central",
+                           "font-size": size, "font-weight": weight }, g);
+    t.style.fill = fill;
+    t.style.stroke = "none";
+    t.textContent = s;
+    return t;
+  }
+
+  // A group in another drawing's frame: base point (x, y), scale s, frame origin (ox, oy).
+  // Draw a character once around its own origin, then place it anywhere at any size.
+  const frame = (g, x, y, s, ox, oy, attrs = {}) =>
+    el("g", { transform: `translate(${x} ${y}) scale(${s}) translate(${-ox} ${-oy})`,
+              "stroke-width": 4, ...ROUND, ...attrs }, g);
+
+  // A thought bubble with up to three short lines, trailing dots towards (tx, ty).
+  function thought(g, x, y, w, h, lines, { tx, ty, ink = "currentColor", paper = "var(--paper)",
+                                           size = 20 } = {}) {
+    const bg = el("g", { "stroke-width": 3 }, g);
+    if (tx !== undefined) {
+      // Two dots from (tx, ty) towards the bubble's lower-left corner: small first, then bigger.
+      const ax = x + Math.min(30, h / 2) * 0.3, ay = y + h - Math.min(30, h / 2) * 0.3;
+      for (const [u, r] of [[0, 4], [0.55, 6]]) {
+        const dot = el("circle", { cx: tx + (ax - tx) * u, cy: ty + (ay - ty) * u, r }, bg);
+        paint_el(dot, paper, ink);
+      }
+    }
+    paint_el(el("rect", { x, y, width: w, height: h, rx: Math.min(30, h / 2) }, bg), paper, ink);
+    lines.forEach((line, k) => {
+      const t = el("text", { x: x + w / 2, y: y + h / 2 + (k - (lines.length - 1) / 2) * size * 1.2,
+                             "text-anchor": "middle", "dominant-baseline": "central" }, bg);
+      Object.assign(t.style, { fill: ink, stroke: "none",
+                               font: `600 ${size}px var(--ui, sans-serif)` });
+      t.textContent = line;
+    });
+    return bg;
+  }
+
+  // A speech bubble (speech: true) or a thought bubble; the tail points at (tx, ty).
+  function bubble(g, x, y, w, h, lines, { tx, ty, ink = "currentColor", paper = "var(--paper)",
+                                          size = 22, speech = false } = {}) {
+    if (!speech) return thought(g, x, y, w, h, lines, { tx, ty, ink, paper, size });
+    const bg = el("g", { "stroke-width": 3, ...ROUND }, g);
+    const cx = x + w / 2, cy = y + h / 2;
+    const bx = Math.max(x + 24, Math.min(x + w - 24, tx)), by = ty < y ? y : y + h;
+    const tail = `M${bx - 12} ${by} L ${tx} ${ty} L ${bx + 12} ${by} Z`;
+    paint_el(el("path", { d: tail }, bg), paper, ink);
+    paint_el(el("rect", { x, y, width: w, height: h, rx: Math.min(24, h / 2) }, bg), paper, ink);
+    // Cover the seam between tail and box with a paper stroke.
+    const seam = `M${bx - 10} ${by} L ${bx + 10} ${by}`;
+    paint_el(el("path", { d: seam, "stroke-width": 5 }, bg), "none", paper);
+    lines.forEach((line, k) => txt(bg, line, cx, cy + (k - (lines.length - 1) / 2) * size * 1.2,
+                                   { size, fill: ink }));
+    return bg;
+  }
+
+  return { ROUND, paint_el, txt, frame, thought, bubble };
+})();
+
 const EXCERPTS = {};
 // Module content: Oreo vs. the toothbrush. META, CHECKS, DIAGRAMS, PICS, CLIPS, and the drawing
 // code they share. Every factual claim traces to a source tag [S#] in ../research/brief.md.
@@ -895,13 +972,7 @@ const OREO_POSE = { x: 230, y: 310, s: 1, ink: "currentColor", paper: "var(--pap
                     ears: 0, lids: 0, pupils: 0.3, brows: 0, tail: 0, puff: 0, look: 0,
                     mouth: "flat" };
 let oreo_uid = 0;
-
-// Set fill and stroke as style properties: they accept hex, currentColor and var().
-function paint_el(e, fill, stroke) {
-  if (fill !== undefined) e.style.fill = fill;
-  if (stroke !== undefined) e.style.stroke = stroke;
-  return e;
-}
+const { ROUND, paint_el, txt, frame, bubble, thought } = PIC_KIT;  // tools/module_kit/pics_lib.js
 
 function oreo(g, pose = {}) {
   const p = { ...OREO_POSE, ...pose };
@@ -1002,47 +1073,14 @@ function hand_brush(g, { x = 520, y = 220, angle = 0, ink = "currentColor" } = {
   return hg;
 }
 
-// A thought bubble with up to three short lines, trailing dots towards (tx, ty).
-function thought(g, x, y, w, h, lines, { tx, ty, ink = "currentColor", paper = "var(--paper)",
-                                         size = 20 } = {}) {
-  const bg = el("g", { "stroke-width": 3 }, g);
-  if (tx !== undefined) {
-    // Two dots from (tx, ty) towards the bubble's lower-left corner: small first, then bigger.
-    const ax = x + Math.min(30, h / 2) * 0.3, ay = y + h - Math.min(30, h / 2) * 0.3;
-    for (const [u, r] of [[0, 4], [0.55, 6]]) {
-      paint_el(el("circle", { cx: tx + (ax - tx) * u, cy: ty + (ay - ty) * u, r }, bg), paper, ink);
-    }
-  }
-  paint_el(el("rect", { x, y, width: w, height: h, rx: Math.min(30, h / 2) }, bg), paper, ink);
-  lines.forEach((line, k) => {
-    const t = el("text", { x: x + w / 2, y: y + h / 2 + (k - (lines.length - 1) / 2) * size * 1.2,
-                           "text-anchor": "middle", "dominant-baseline": "central" }, bg);
-    Object.assign(t.style, { fill: ink, stroke: "none", font: `600 ${size}px var(--ui, sans-serif)` });
-    t.textContent = line;
-  });
-  return bg;
-}
 
 // ---- More drawing: text, the owner, hands, props and the mouth close-up ----
 // Same colour rules as Oreo: ink/paper are passed in; everything else is a fixed hex.
 const PROP = { slate: "#4a5263", hair: "#3b2a22", steel: "#9aa3ad", towel: "#d95926",
                treat: "#a0683a", gum: "#e8909c", gum_dk: "#c0606e", tooth: "#fbfbfa",
                tartar: "#9a7a45" };
-const ROUND = { "stroke-linecap": "round", "stroke-linejoin": "round" };
 
-function txt(g, s, x, y, { size = 22, weight = 600, anchor = "middle", fill = "currentColor" } = {}) {
-  const t = el("text", { x, y, "text-anchor": anchor, "dominant-baseline": "central",
-                         "font-size": size, "font-weight": weight }, g);
-  t.style.fill = fill;
-  t.style.stroke = "none";
-  t.textContent = s;
-  return t;
-}
 
-// A group in another drawing's frame: base point (x, y), scale s, frame origin (ox, oy).
-const frame = (g, x, y, s, ox, oy, attrs = {}) =>
-  el("g", { transform: `translate(${x} ${y}) scale(${s}) translate(${-ox} ${-oy})`,
-            "stroke-width": 4, ...ROUND, ...attrs }, g);
 
 // A finger: an ink stroke under a skin stroke, along path d.
 function finger(g, d, ink, w = 18) {
@@ -1081,20 +1119,6 @@ function head_hold(g, { x = 230, y = 310, s = 1, ink = "currentColor", grip = 1 
   return hg;
 }
 
-// Speech or thought bubble with short lines; the tail points at (tx, ty).
-function bubble(g, x, y, w, h, lines, { tx, ty, ink = "currentColor", paper = "var(--paper)",
-                                        size = 22, speech = false } = {}) {
-  if (!speech) return thought(g, x, y, w, h, lines, { tx, ty, ink, paper, size });
-  const bg = el("g", { "stroke-width": 3, ...ROUND }, g);
-  const cx = x + w / 2, cy = y + h / 2;
-  const bx = Math.max(x + 24, Math.min(x + w - 24, tx)), by = ty < y ? y : y + h;
-  paint_el(el("path", { d: `M${bx - 12} ${by} L ${tx} ${ty} L ${bx + 12} ${by} Z` }, bg), paper, ink);
-  paint_el(el("rect", { x, y, width: w, height: h, rx: Math.min(24, h / 2) }, bg), paper, ink);
-  paint_el(el("path", { d: `M${bx - 10} ${by} L ${bx + 10} ${by}`, "stroke-width": 5 }, bg), "none", paper);
-  lines.forEach((line, k) => txt(bg, line, cx, cy + (k - (lines.length - 1) / 2) * size * 1.2,
-                                 { size, fill: ink }));
-  return bg;
-}
 
 function tube(g, x, y, { label = "Cat paste", ink = "currentColor", color = "#199e70", s = 1 } = {}) {
   const tg = frame(g, x, y, s, 0, 0);
@@ -2181,6 +2205,10 @@ const params = new URLSearchParams(location.hash.slice(1));
 const problems = [], warnings = [];
 const problem = msg => problems.push(msg);
 const warn = msg => warnings.push(msg);
+// Checks that need the embedded fonts and real layout (text widths, wraps). Fonts are ready
+// only at the load event, so these run then, and only for the #debug report.
+const layout_lints = [];
+const PIC_MIN_PX = 12;  // smallest readable text in a picture, in CSS pixels as rendered
 const G = name => (typeof globalThis[name] !== "undefined" ? globalThis[name] : null);
 const META_ = typeof META !== "undefined" ? META : { title: document.title };
 const CHECKS_ = typeof CHECKS !== "undefined" ? CHECKS : {};
@@ -2791,6 +2819,18 @@ function make_clip(name, def, host) {
   new IntersectionObserver(es => es.forEach(en => { if (!en.isIntersecting && playing) pause(); }),
                            { threshold: 0.25 }).observe(stage);
   render_at(0);
+  layout_lints.push(() => {  // a caption that wraps covers the picture: shorten it
+    const fresh = stage.classList.contains("fresh");
+    stage.classList.remove("fresh");
+    for (const c of cues) {
+      cap_span.textContent = c.text;
+      if (cap_span.getClientRects().length > 1) {
+        warn(`clip ${name}: caption wraps to two lines; shorten it: "${c.text}"`);
+      }
+    }
+    stage.classList.toggle("fresh", fresh);
+    render_at(now);
+  });
   PLAYERS[name] = { name, total, cues, scenes: scenes.map(s => ({ title: s.title, start: s.start, dur: s.dur })),
                     play, pause, seek };
 }
@@ -2864,6 +2904,17 @@ function make_diagram(name, def, host) {
         const t = el("text", { class: cls, x: lx, y: ly }, g);
         t.textContent = e.label;
       }
+      const label_el = g.lastChild;
+      layout_lints.push(() => {  // nodes are drawn on top, so they cut a label they overlap
+        const r = label_el.getBBox();
+        for (const n of Object.values(nodes)) {
+          const x0 = n.def.x - n.w / 2, y0 = n.def.y - n.h / 2;
+          if (r.x < x0 + n.w && r.x + r.width > x0 && r.y < y0 + n.h && r.y + r.height > y0) {
+            warn(`${where}: edge label "${e.label}" (${key}) is cut by node ${n.def.id}; ` +
+                 "move the nodes apart or shorten the label");
+          }
+        }
+      });
     }
     edges[key] = g;
   }
@@ -2968,6 +3019,17 @@ function make_pic(name, def, host) {
                 def.caption ? h("figcaption", { html: def.caption }) : null);
   host.replaceWith(fig);
   PIC_NAMES.push(name);
+  layout_lints.push(() => {  // side pictures shrink: their text must stay readable
+    const scale = svg.getBoundingClientRect().width / w;
+    if (!scale) return;
+    const small = [...svg.querySelectorAll("text")].map(t => [t.textContent.trim(),
+      parseFloat(getComputedStyle(t).fontSize) * scale]).filter(([txt, px]) => txt && px < PIC_MIN_PX);
+    if (small.length) {
+      const [txt, px] = small.reduce((a, b) => (b[1] < a[1] ? b : a));
+      warn(`pic ${name}: text renders at ${px.toFixed(1)} px (under ${PIC_MIN_PX}), e.g. ` +
+           `"${txt}"; make it larger in the drawing, or do not float the picture (class "side")`);
+    }
+  });
 }
 
 function render_header(host) {
@@ -3160,6 +3222,12 @@ $$("[data-pic]").forEach(host => guarded(`pic "${host.dataset.pic}"`, host, () =
 }));
 Object.keys(PICS_).forEach(n => { if (!pics_placed.has(n)) warn(`pic "${n}" is defined but never placed`); });
 $$("[data-summary]").forEach(host => { host.classList.add("summary", "summary-host"); });
+// The CSS adds the icon to warn and gotcha titles; one typed in the title shows twice.
+$$(".callout.warn > .ttl, .callout.gotcha > .ttl").forEach(t => {
+  if (/^\s*[⚠✗✓✔✘]/.test(t.textContent)) {
+    warn(`callout "${t.textContent.trim()}": remove the icon from the title; the CSS adds it`);
+  }
+});
 
 const theme_btn = build_sidebar();
 apply_theme(theme_btn);
@@ -3201,7 +3269,8 @@ if (params.has("y")) {
   $("main").style.transform = `translateY(${-params.get("y")}px)`;
   update_toc();
 }
-if (params.has("debug")) {
+function publish_report() {
+  layout_lints.forEach(f => { try { f(); } catch (e) { problem(`layout check: ${e.message}`); } });
   const report = {
     height: document.documentElement.scrollHeight,
     title: META_.title,
@@ -3214,6 +3283,10 @@ if (params.has("debug")) {
     selftest: self_test(), problems, warnings,
   };
   document.body.append(h("pre", { id: "kit-report", hidden: true, text: JSON.stringify(report) }));
+}
+if (params.has("debug")) {
+  if (document.readyState === "complete") publish_report();
+  else window.addEventListener("load", publish_report);
 }
 })();
 

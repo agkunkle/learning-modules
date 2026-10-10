@@ -21,13 +21,7 @@ const OREO_POSE = { x: 230, y: 310, s: 1, ink: "currentColor", paper: "var(--pap
                     ears: 0, lids: 0, pupils: 0.3, brows: 0, tail: 0, puff: 0, look: 0,
                     mouth: "flat" };
 let oreo_uid = 0;
-
-// Set fill and stroke as style properties: they accept hex, currentColor and var().
-function paint_el(e, fill, stroke) {
-  if (fill !== undefined) e.style.fill = fill;
-  if (stroke !== undefined) e.style.stroke = stroke;
-  return e;
-}
+const { ROUND, paint_el, txt, frame, bubble, thought } = PIC_KIT;  // tools/module_kit/pics_lib.js
 
 function oreo(g, pose = {}) {
   const p = { ...OREO_POSE, ...pose };
@@ -128,47 +122,14 @@ function hand_brush(g, { x = 520, y = 220, angle = 0, ink = "currentColor" } = {
   return hg;
 }
 
-// A thought bubble with up to three short lines, trailing dots towards (tx, ty).
-function thought(g, x, y, w, h, lines, { tx, ty, ink = "currentColor", paper = "var(--paper)",
-                                         size = 20 } = {}) {
-  const bg = el("g", { "stroke-width": 3 }, g);
-  if (tx !== undefined) {
-    // Two dots from (tx, ty) towards the bubble's lower-left corner: small first, then bigger.
-    const ax = x + Math.min(30, h / 2) * 0.3, ay = y + h - Math.min(30, h / 2) * 0.3;
-    for (const [u, r] of [[0, 4], [0.55, 6]]) {
-      paint_el(el("circle", { cx: tx + (ax - tx) * u, cy: ty + (ay - ty) * u, r }, bg), paper, ink);
-    }
-  }
-  paint_el(el("rect", { x, y, width: w, height: h, rx: Math.min(30, h / 2) }, bg), paper, ink);
-  lines.forEach((line, k) => {
-    const t = el("text", { x: x + w / 2, y: y + h / 2 + (k - (lines.length - 1) / 2) * size * 1.2,
-                           "text-anchor": "middle", "dominant-baseline": "central" }, bg);
-    Object.assign(t.style, { fill: ink, stroke: "none", font: `600 ${size}px var(--ui, sans-serif)` });
-    t.textContent = line;
-  });
-  return bg;
-}
 
 // ---- More drawing: text, the owner, hands, props and the mouth close-up ----
 // Same colour rules as Oreo: ink/paper are passed in; everything else is a fixed hex.
 const PROP = { slate: "#4a5263", hair: "#3b2a22", steel: "#9aa3ad", towel: "#d95926",
                treat: "#a0683a", gum: "#e8909c", gum_dk: "#c0606e", tooth: "#fbfbfa",
                tartar: "#9a7a45" };
-const ROUND = { "stroke-linecap": "round", "stroke-linejoin": "round" };
 
-function txt(g, s, x, y, { size = 22, weight = 600, anchor = "middle", fill = "currentColor" } = {}) {
-  const t = el("text", { x, y, "text-anchor": anchor, "dominant-baseline": "central",
-                         "font-size": size, "font-weight": weight }, g);
-  t.style.fill = fill;
-  t.style.stroke = "none";
-  t.textContent = s;
-  return t;
-}
 
-// A group in another drawing's frame: base point (x, y), scale s, frame origin (ox, oy).
-const frame = (g, x, y, s, ox, oy, attrs = {}) =>
-  el("g", { transform: `translate(${x} ${y}) scale(${s}) translate(${-ox} ${-oy})`,
-            "stroke-width": 4, ...ROUND, ...attrs }, g);
 
 // A finger: an ink stroke under a skin stroke, along path d.
 function finger(g, d, ink, w = 18) {
@@ -207,20 +168,6 @@ function head_hold(g, { x = 230, y = 310, s = 1, ink = "currentColor", grip = 1 
   return hg;
 }
 
-// Speech or thought bubble with short lines; the tail points at (tx, ty).
-function bubble(g, x, y, w, h, lines, { tx, ty, ink = "currentColor", paper = "var(--paper)",
-                                        size = 22, speech = false } = {}) {
-  if (!speech) return thought(g, x, y, w, h, lines, { tx, ty, ink, paper, size });
-  const bg = el("g", { "stroke-width": 3, ...ROUND }, g);
-  const cx = x + w / 2, cy = y + h / 2;
-  const bx = Math.max(x + 24, Math.min(x + w - 24, tx)), by = ty < y ? y : y + h;
-  paint_el(el("path", { d: `M${bx - 12} ${by} L ${tx} ${ty} L ${bx + 12} ${by} Z` }, bg), paper, ink);
-  paint_el(el("rect", { x, y, width: w, height: h, rx: Math.min(24, h / 2) }, bg), paper, ink);
-  paint_el(el("path", { d: `M${bx - 10} ${by} L ${bx + 10} ${by}`, "stroke-width": 5 }, bg), "none", paper);
-  lines.forEach((line, k) => txt(bg, line, cx, cy + (k - (lines.length - 1) / 2) * size * 1.2,
-                                 { size, fill: ink }));
-  return bg;
-}
 
 function tube(g, x, y, { label = "Cat paste", ink = "currentColor", color = "#199e70", s = 1 } = {}) {
   const tg = frame(g, x, y, s, 0, 0);

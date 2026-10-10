@@ -10,6 +10,10 @@
       build, open it in headless Chrome, report problems, JS errors and the check self-test,
       and write review sheets (pages, every clip caption, every diagram flow step) to
       <module>/check/
+      --only replaces just those kinds of sheet and keeps the rest
+  kit.py shot <module> <fragment>...                screenshot hash fragments, e.g.
+      "solo=clip:intro&t=4.5" "solo=diagram:map&flow=0&step=2" "at=setup&reveal", into
+      <module>/check/shots/ (plus shots.jpg with more than one): to check one fix quickly
   kit.py publish <module> [--force]                 build and deploy to Netlify; print the link
       (public). Redeploys to the same link if <module>/publish.json exists. Refuses a
       META.internal module without --force. Token: $NETLIFY_AUTH_TOKEN or ~/.config/netlify/token
@@ -31,6 +35,7 @@ import sys
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -38,6 +43,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SHELL, CSS, ENGINE, RUNTIME = (HERE / n for n in ("shell.html", "module.css", "engine.js", "module.js"))
+PICS_LIB = HERE / "pics_lib.js"  # drawing helpers (PIC_KIT), inlined right after engine.js
 STARTER = HERE / "starter"
 FONTS = HERE / "fonts"
 # fonts/<role>-<weight>[i].woff2 -> CSS family (OFL fonts; made by fonts/make_fonts.py)
@@ -53,6 +59,7 @@ PAGE_CHUNK = 12000               # tallest window per page shot (Chrome copes wi
 CLIP_W, CLIP_H = 1280, 800       # solo clip screenshots
 PIC_W, PIC_H = 900, 640          # solo picture screenshots
 ONLY_ALL = ("pages", "clips", "diagrams", "pics")  # what check screenshots by default
+SHEET_PREFIX = {"pages": "pages_", "clips": "clip_", "diagrams": "diagram_", "pics": "pics"}
 SHEET_PAGES = 6                  # page shots per sheet
 NETLIFY_API = "https://api.netlify.com/api/v1"
 TOKEN_FILE = Path.home() / ".config" / "netlify" / "token"
@@ -114,7 +121,8 @@ def build(module):
   for name in (CONTENT, MODULE_JS):
     if not (src / name).exists():
       raise KitError(f"{src / name} not found (start a module with: kit.py new {module})")
-  page = build_page(SHELL.read_text(), font_faces() + CSS.read_text(), ENGINE.read_text(),
+  engine = ENGINE.read_text() + "\n" + PICS_LIB.read_text()
+  page = build_page(SHELL.read_text(), font_faces() + CSS.read_text(), engine,
                     load_excerpts(module),
                     (src / MODULE_JS).read_text(), (src / CONTENT).read_text(), RUNTIME.read_text())
   out = out_path(module)
@@ -295,6 +303,64 @@ def slice_tiles(png, y0):
   return out
 
 
+def frame_name(sheet, k, label):
+  """frames/<sheet>_<k>_<label>.png, e.g. clip_brushing_007_t_41.9.png: easy to find by eye."""
+  return f"{sheet}_{k:03d}_{re.sub(r'[^A-Za-z0-9.]+', '_', label).strip('_')}.png"
+
+
+def clear_check_output(out_dir, only):
+  """Delete the sheets and frames of the kinds in `only`; keep the others (check --only)."""
+  prefixes = tuple(SHEET_PREFIX[k] for k in only if k in SHEET_PREFIX)
+  if not prefixes:
+    return
+  for path in [*out_dir.glob("*.jpg"), *(out_dir / "frames").glob("*.png")]:
+    if path.name.startswith(prefixes):
+      path.unlink()
+
+
+def parse_fragment(frag):
+  """'solo=clip:x&t=4&reveal' -> {'solo': 'clip:x', 't': '4', 'reveal': True}."""
+  pairs = urllib.parse.parse_qsl(frag.lstrip("#"), keep_blank_values=True)
+  return {k: (v if v != "" else True) for k, v in pairs}
+
+
+def shot_size(frag):
+  kind = str(frag.get("solo", "")).split(":")[0]
+  return {"clip": (CLIP_W, CLIP_H), "pic": (PIC_W, PIC_H)}.get(kind, (PAGE_W, PAGE_H))
+
+
+def shot(module, frags, jobs=4):
+  """Build, then screenshot each hash fragment into <module>/check/shots/. With more than one
+  fragment, also tile them into shots.jpg. Returns [png paths] (+ the sheet)."""
+  module = Path(module)
+  page = build(module)
+  chrome = find_chrome()
+  if not chrome:
+    raise KitError("no Chrome/Chromium found; install google-chrome or set $CHROME")
+  out_dir = module / "check" / "shots"
+  out_dir.mkdir(parents=True, exist_ok=True)
+  jobs_ = []
+  for k, text in enumerate(frags):
+    frag = parse_fragment(text)
+    jobs_.append((text, frag, out_dir / frame_name("shot", k, text)))
+
+  def take(job):
+    _, frag, png = job
+    w, h = shot_size(frag)
+    run_chrome(chrome, page_url(page, **frag), f"--screenshot={png}", f"--window-size={w},{h}")
+
+  with ThreadPoolExecutor(jobs) as pool:
+    list(pool.map(take, jobs_))
+  missing = [text for text, _, png in jobs_ if not png.exists()]
+  if missing:
+    raise KitError(f"Chrome wrote no screenshot for: {', '.join(missing)}")
+  out = [png for _, _, png in jobs_]
+  if len(out) > 1:
+    frames = [(text, png) for text, _, png in jobs_]
+    out.append(contact_sheet(frames, out_dir / "shots.jpg", 2, 960))
+  return out
+
+
 def check(module, only=ONLY_ALL, reveal=False, theme=None, shots=True, jobs=4):
   """Build and inspect. Returns 0 when the page is clean, else 1."""
   module = Path(module)
@@ -328,13 +394,18 @@ def check(module, only=ONLY_ALL, reveal=False, theme=None, shots=True, jobs=4):
 
   out_dir = module / "check"
   if shots:
-    if out_dir.exists():
+    if set(only) >= set(ONLY_ALL) and out_dir.exists():
       shutil.rmtree(out_dir)  # only ever holds this tool's own output
-    (out_dir / "frames").mkdir(parents=True)
+    elif out_dir.exists():
+      clear_check_output(out_dir, only)  # --only: keep the other kinds' sheets
+    (out_dir / "frames").mkdir(parents=True, exist_ok=True)
     (out_dir / "report.json").write_text(json.dumps(report, indent=1))
     plan = shot_plan(report, only, reveal, theme)
-    jobs_ = [(sheet, label, frag, size, out_dir / "frames" / f"{k:03d}.png")
-             for k, (sheet, label, frag, size) in enumerate(plan)]
+    counts = {}
+    jobs_ = []
+    for sheet, label, frag, size in plan:
+      k = counts[sheet] = counts.get(sheet, -1) + 1
+      jobs_.append((sheet, label, frag, size, out_dir / "frames" / frame_name(sheet, k, label)))
 
     def take(job):
       _, _, frag, (w, h), png = job
@@ -491,6 +562,10 @@ def main(argv=None):
   p.add_argument("--theme", choices=("light", "dark"))
   p.add_argument("--no-shots", action="store_true")
   p.add_argument("--jobs", type=int, default=4)
+  p = sub.add_parser("shot")
+  p.add_argument("module")
+  p.add_argument("fragments", nargs="+", help='hash fragments, e.g. "solo=clip:intro&t=4.5"')
+  p.add_argument("--jobs", type=int, default=4)
   p = sub.add_parser("publish")
   p.add_argument("module")
   p.add_argument("--force", action="store_true", help="publish a META.internal module too")
@@ -511,6 +586,9 @@ def main(argv=None):
       rec = add_excerpt(args.module, args.id, args.file, lines, args.diff, args.rev)
       print(f"{args.id}: {rec['file']}:{rec['start']} ({len(rec['text'].splitlines())} lines, "
             f"{rec['lang']}, commit {rec['commit']})")
+    elif args.cmd == "shot":
+      for path in shot(args.module, args.fragments, args.jobs):
+        print(f"shot: {path}")
     elif args.cmd == "publish":
       rec = publish(args.module, args.force)
       print(f"published {rec['url']} (site {rec['site_id']})")

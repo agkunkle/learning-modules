@@ -21,6 +21,10 @@ const params = new URLSearchParams(location.hash.slice(1));
 const problems = [], warnings = [];
 const problem = msg => problems.push(msg);
 const warn = msg => warnings.push(msg);
+// Checks that need the embedded fonts and real layout (text widths, wraps). Fonts are ready
+// only at the load event, so these run then, and only for the #debug report.
+const layout_lints = [];
+const PIC_MIN_PX = 12;  // smallest readable text in a picture, in CSS pixels as rendered
 const G = name => (typeof globalThis[name] !== "undefined" ? globalThis[name] : null);
 const META_ = typeof META !== "undefined" ? META : { title: document.title };
 const CHECKS_ = typeof CHECKS !== "undefined" ? CHECKS : {};
@@ -631,6 +635,18 @@ function make_clip(name, def, host) {
   new IntersectionObserver(es => es.forEach(en => { if (!en.isIntersecting && playing) pause(); }),
                            { threshold: 0.25 }).observe(stage);
   render_at(0);
+  layout_lints.push(() => {  // a caption that wraps covers the picture: shorten it
+    const fresh = stage.classList.contains("fresh");
+    stage.classList.remove("fresh");
+    for (const c of cues) {
+      cap_span.textContent = c.text;
+      if (cap_span.getClientRects().length > 1) {
+        warn(`clip ${name}: caption wraps to two lines; shorten it: "${c.text}"`);
+      }
+    }
+    stage.classList.toggle("fresh", fresh);
+    render_at(now);
+  });
   PLAYERS[name] = { name, total, cues, scenes: scenes.map(s => ({ title: s.title, start: s.start, dur: s.dur })),
                     play, pause, seek };
 }
@@ -704,6 +720,17 @@ function make_diagram(name, def, host) {
         const t = el("text", { class: cls, x: lx, y: ly }, g);
         t.textContent = e.label;
       }
+      const label_el = g.lastChild;
+      layout_lints.push(() => {  // nodes are drawn on top, so they cut a label they overlap
+        const r = label_el.getBBox();
+        for (const n of Object.values(nodes)) {
+          const x0 = n.def.x - n.w / 2, y0 = n.def.y - n.h / 2;
+          if (r.x < x0 + n.w && r.x + r.width > x0 && r.y < y0 + n.h && r.y + r.height > y0) {
+            warn(`${where}: edge label "${e.label}" (${key}) is cut by node ${n.def.id}; ` +
+                 "move the nodes apart or shorten the label");
+          }
+        }
+      });
     }
     edges[key] = g;
   }
@@ -808,6 +835,17 @@ function make_pic(name, def, host) {
                 def.caption ? h("figcaption", { html: def.caption }) : null);
   host.replaceWith(fig);
   PIC_NAMES.push(name);
+  layout_lints.push(() => {  // side pictures shrink: their text must stay readable
+    const scale = svg.getBoundingClientRect().width / w;
+    if (!scale) return;
+    const small = [...svg.querySelectorAll("text")].map(t => [t.textContent.trim(),
+      parseFloat(getComputedStyle(t).fontSize) * scale]).filter(([txt, px]) => txt && px < PIC_MIN_PX);
+    if (small.length) {
+      const [txt, px] = small.reduce((a, b) => (b[1] < a[1] ? b : a));
+      warn(`pic ${name}: text renders at ${px.toFixed(1)} px (under ${PIC_MIN_PX}), e.g. ` +
+           `"${txt}"; make it larger in the drawing, or do not float the picture (class "side")`);
+    }
+  });
 }
 
 function render_header(host) {
@@ -1000,6 +1038,12 @@ $$("[data-pic]").forEach(host => guarded(`pic "${host.dataset.pic}"`, host, () =
 }));
 Object.keys(PICS_).forEach(n => { if (!pics_placed.has(n)) warn(`pic "${n}" is defined but never placed`); });
 $$("[data-summary]").forEach(host => { host.classList.add("summary", "summary-host"); });
+// The CSS adds the icon to warn and gotcha titles; one typed in the title shows twice.
+$$(".callout.warn > .ttl, .callout.gotcha > .ttl").forEach(t => {
+  if (/^\s*[⚠✗✓✔✘]/.test(t.textContent)) {
+    warn(`callout "${t.textContent.trim()}": remove the icon from the title; the CSS adds it`);
+  }
+});
 
 const theme_btn = build_sidebar();
 apply_theme(theme_btn);
@@ -1041,7 +1085,8 @@ if (params.has("y")) {
   $("main").style.transform = `translateY(${-params.get("y")}px)`;
   update_toc();
 }
-if (params.has("debug")) {
+function publish_report() {
+  layout_lints.forEach(f => { try { f(); } catch (e) { problem(`layout check: ${e.message}`); } });
   const report = {
     height: document.documentElement.scrollHeight,
     title: META_.title,
@@ -1054,5 +1099,9 @@ if (params.has("debug")) {
     selftest: self_test(), problems, warnings,
   };
   document.body.append(h("pre", { id: "kit-report", hidden: true, text: JSON.stringify(report) }));
+}
+if (params.has("debug")) {
+  if (document.readyState === "complete") publish_report();
+  else window.addEventListener("load", publish_report);
 }
 })();

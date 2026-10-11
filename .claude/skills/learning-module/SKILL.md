@@ -52,7 +52,7 @@ Tools: `tools/module_kit/kit.py` (`new`, `excerpt`, `build`, `check`, `shot`, `p
    Publishing).
 
 Size: 30-45 min, 6-8 numbered sections, 2-3 checks per section, a review quiz of 6-8 items at
-the end. Write in plain, short sentences (about 80% of ASD-STE100).
+the end. Write content in an educational teaching style prose appropriate for the subject matter.
 
 ## Change modules (for code review)
 

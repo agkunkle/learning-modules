@@ -260,14 +260,6 @@ figure.clip { margin: 2em auto; }
 .clip-poster .play { width: 8cqw; height: 8cqw; border-radius: 50%; background: #256abf;
   display: flex; align-items: center; justify-content: center; }
 .clip-poster .play svg { position: static; width: 46%; height: 46%; fill: #fff; margin-left: 8%; }
-.clip-flash { position: absolute; left: 50%; top: 50%; width: 9cqw; height: 9cqw;
-  margin: -4.5cqw 0 0 -4.5cqw; border-radius: 50%; background: rgba(8, 10, 13, 0.72);
-  display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; }
-.clip-flash svg { position: static; width: 46%; height: 46%; fill: #fff; }
-.clip-flash.go { animation: clip-flash 0.7s ease-out; }
-@keyframes clip-flash { from { opacity: 0.95; transform: scale(0.8); } to { opacity: 0; transform: scale(1.25); } }
-@keyframes clip-flash-fade { from { opacity: 0.95; } to { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .clip-flash.go { animation-name: clip-flash-fade; } }
 .clip-bar { display: flex; align-items: center; gap: 6px; padding: 2px 8px; background: #1d2128;
   color: #e8eaee; border-radius: 0 0 6px 6px; font: 500 14px var(--ui); }
 .clip-bar button { background: none; border: 0; color: #e8eaee; padding: 6px 10px;

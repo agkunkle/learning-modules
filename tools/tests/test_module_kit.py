@@ -509,14 +509,3 @@ def test_glossary_marks_first_use_only_and_warns_about_unused_terms(tmp_path):
   assert report["glossary"].count("lazily") == 1      # the first use only
   assert report["glossary"].count("stage") == 1
   assert 'glossary term "never used" never appears in the prose' in "\n".join(report["warnings"])
-
-
-@pytest.mark.skipif(not kit.find_chrome(), reason="no Chrome/Chromium")
-def test_clip_has_a_pause_flash_and_a_page_wide_pause_key(tmp_path):
-  mod = tmp_path / "demo"
-  kit.new_module(mod)
-  page = kit.build(mod)
-  html_ = page.read_text()
-  assert 'class: "clip-flash"' in html_ and ".clip-flash.go" in html_
-  assert 'e.key' in html_ and "p.stop()" in html_
-

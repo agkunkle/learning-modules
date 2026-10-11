@@ -529,15 +529,6 @@ const PLAYERS = {};
 const ICON = { play: "M6 4v16l14-8z", pause: "M6 5h4v14H6zM14 5h4v14h-4z",
                replay: "M12 5V1L7 6l5 5V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z" };
 const icon = n => `<svg viewBox="0 0 24 24"><path d="${ICON[n]}"/></svg>`;
-// Space, K or Esc anywhere on the page pauses the clip that is playing (not only on its stage).
-document.addEventListener("keydown", e => {
-  if (![" ", "k", "Escape"].includes(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
-  if (e.target.closest?.("input, textarea, select, button, a, [contenteditable], .clip-stage, [role=slider]")) return;
-  const p = Object.values(PLAYERS).find(q => q.is_playing());
-  if (!p) return;
-  p.stop();
-  e.preventDefault();
-});
 const fmt = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
 function make_clip(name, def, host) {
@@ -546,9 +537,8 @@ function make_clip(name, def, host) {
   const cap = h("div", { class: "clip-cap" }, cap_span);
   const poster = h("div", { class: "clip-poster" }, h("div", { class: "t", text: def.title }),
                    h("div", { class: "play", html: icon("play") }));
-  const flash = h("div", { class: "clip-flash" });  // a big play/pause icon that fades, so a click shows its effect
   const stage = h("div", { class: "clip-stage fresh", tabindex: 0, role: "button", title: "Click to play or pause",
-                           "aria-label": `Play or pause: ${def.title}` }, svg, cap, poster, flash);
+                           "aria-label": `Play or pause: ${def.title}` }, svg, cap, poster);
   const b_play = h("button", { title: "Play/pause (Space)", "aria-label": "Play or pause", html: icon("play") });
   const b_cc = h("button", { title: "Captions", text: "CC" });
   const fill = h("div", { class: "fill" });
@@ -619,14 +609,7 @@ function make_clip(name, def, host) {
     now = Math.min(total, Math.max(0, t));
     render_at(now);
   }
-  function show_flash(kind) {
-    flash.innerHTML = icon(kind);
-    flash.classList.remove("go");
-    void flash.offsetWidth;  // restart the animation
-    flash.classList.add("go");
-  }
-  const stop = () => { pause(); show_flash("pause"); };
-  const toggle = () => { if (playing) stop(); else { play(); show_flash("play"); } };
+  const toggle = () => (playing ? pause() : play());
   stage.onclick = toggle;
   b_play.onclick = toggle;
   b_cc.onclick = () => { cc = !cc; cap.classList.toggle("off", !cc); b_cc.classList.toggle("off", !cc); };
@@ -666,7 +649,7 @@ function make_clip(name, def, host) {
     render_at(now);
   });
   PLAYERS[name] = { name, total, cues, scenes: scenes.map(s => ({ title: s.title, start: s.start, dur: s.dur })),
-                    play, pause, seek, stop, is_playing: () => playing };
+                    play, pause, seek };
 }
 
 // ---------------------------------------------------------------------------------------------

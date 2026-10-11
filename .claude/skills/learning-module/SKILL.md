@@ -74,19 +74,21 @@ kit.py excerpt <module> <id> <file> --diff <rev or a...b>
 kit.py build <module>
 kit.py check <module> [--reveal] [--theme light|dark] [--only pages,clips,diagrams,pics] [--no-shots]
 kit.py shot <module> <fragment>...      e.g. "solo=clip:x&t=4.5" "solo=pic:p&theme=dark" "at=setup"
-kit.py publish <module> [--force]
+kit.py publish <module>
 kit.py unpublish <module>
 ```
 
 ### Publishing
 
-`publish` builds the module, uploads it to Netlify as `index.html` and prints a **public** link
-(anyone with the URL can open it). It writes `<module>/publish.json` (site id, URL; ignored by
-git), so the next `publish` updates the same link and `unpublish` deletes the site. Token:
-`$NETLIFY_AUTH_TOKEN` or `~/.config/netlify/token` (mode 600; never print it). A module with
-`META.internal = true` is refused unless you pass `--force`; use `--force` only when the user
-says so for that module. If `publish` warns that the site is private, the Netlify team's default
-project visibility is private: change it in Team settings > General > Visitor access.
+`publish` builds the module, pushes it as `<module>/index.html` to the `gh-pages` branch of
+`origin` (through a temporary clone; `main` is never touched) and prints a **public** GitHub Pages
+link: `https://<owner>.github.io/<repo>/<module>/`. On the first run it turns Pages on for the repo
+(source: `gh-pages`, root) with the `gh` CLI, which must be logged in. It waits for the Pages
+build (a minute or two) and warns if the page is not served as `text/html`. It writes
+`<module>/publish.json` (link, commit; ignored by git). The next `publish` updates the same link;
+`unpublish` removes the folder from `gh-pages` (the old page stays in that branch's history).
+A module with `META.internal = true`, or a module folder that git ignores (a private module), is
+refused with no override: the repo and the site are public.
 
 `check` exits 1 on JS errors, problems or self-test failures. It replaces `<module>/check/`
 (its own output only) with `report.json`, `frames/` and the sheets: `pages_N.jpg`,
@@ -230,9 +232,8 @@ the kit needs one consistent look. If neither skill is installed, follow the rul
   from the global's `const` line.
 - The embedded fonts are ready only at the load event, not while the page script runs. Code
   that measures text must wait for load (the kit's layout warnings do).
-- After `publish`, run `curl -sI <url>`: `content-type` must be `text/html`. (A zip deploy once
-  served the page as `text/plain`, so browsers showed source; `publish` now uses a file-digest
-  deploy.)
+- `publish` goes live only after the Pages build ends; the CLI waits for it. Pages caches for a
+  few minutes: after a re-publish, a reload may still show the old page for a short time.
 
 ## Dependencies (Ubuntu 22.04+ or WSL2, with Claude Code)
 

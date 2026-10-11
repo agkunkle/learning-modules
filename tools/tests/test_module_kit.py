@@ -1,5 +1,4 @@
 """Tests for tools/module_kit/kit.py. The Chrome test is skipped when no browser is found."""
-import hashlib
 import json
 import re
 import subprocess
@@ -208,136 +207,177 @@ def test_kit_fonts_exist_with_licenses():
   assert len(list(kit.FONTS.glob("OFL_*.txt"))) == 3
 
 
-# ---- publishing (fake Netlify: these tests never touch the network) ------------------------
+# ---- publishing (a local bare repo as origin and a fake gh: no network) --------------------
 
-class FakeNetlify:
-  """Stands in for kit.netlify: records calls and serves canned responses."""
+class FakeGh:
+  """Stands in for kit.gh: records calls; Pages is on or off; builds report `states` in turn."""
 
-  def __init__(self, sites=(), states=("ready",), sso=False, required=True):
-    self.calls, self.sites, self.states, self.sso = [], set(sites), list(states), sso
-    self.required, self.bodies = required, {}
+  def __init__(self, pages_on=False, states=("built",)):
+    self.calls, self.pages_on, self.states, self.commit = [], pages_on, list(states), None
 
-  def __call__(self, method, path, token, data=None):
-    self.calls.append((method, path, data is not None))
-    if data is not None:
-      self.bodies[(method, path)] = data
-    parts = path.strip("/").split("/")
-    if method == "POST" and path == "/sites":
-      self.sites.add("s-new")
-      return {"id": "s-new", "ssl_url": None}
-    if parts[0] == "sites" and parts[1] not in self.sites:
-      raise kit.NetlifyError(404, f"{path}: not found")
-    if method == "POST":
-      sha = data["files"]["/index.html"]
-      required = [sha] if self.required else []
-      return {"id": f"d-{parts[1]}", "state": "uploaded", "required": required}
-    if method == "PUT":
-      return {"id": "index.html"}
-    if method == "GET" and parts[0] == "deploys":
-      return {"state": self.states.pop(0) if len(self.states) > 1 else self.states[0]}
-    if method == "GET":
-      return {"ssl_url": f"https://{parts[1]}.netlify.app", "sso_login": self.sso}
-    self.sites.discard(parts[1])
-    return None
+  def __call__(self, *args):
+    self.calls.append(args)
+    if args[1] == "-X":  # turn Pages on
+      self.pages_on = True
+      return "{}"
+    if args[1].endswith("/pages/builds/latest"):
+      state = self.states.pop(0) if len(self.states) > 1 else self.states[0]
+      return json.dumps({"status": state, "commit": self.commit})
+    if not self.pages_on:
+      raise kit.KitError("gh api repos/o/r/pages: Not Found (HTTP 404)")
+    return "{}"
+
+
+def run_git(cwd, *args):
+  return subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True,
+                        check=True).stdout
 
 
 @pytest.fixture
-def netlify(monkeypatch, tmp_path):
-  def use(**kw):
-    fake = FakeNetlify(**kw)
-    monkeypatch.setattr(kit, "netlify", fake)
-    monkeypatch.setattr(kit, "netlify_token", lambda: "tok")
-    return fake
+def pages(monkeypatch, tmp_path):
+  """(use, module, origin): `use(**kw)` installs a FakeGh; origin is a bare repo."""
+  origin = tmp_path / "origin.git"
+  subprocess.run(["git", "init", "--quiet", "--bare", str(origin)], check=True)
+  monkeypatch.setattr(kit, "github_slug", lambda remote: "Owner/repo")
+  for k, v in (("GIT_AUTHOR_NAME", "t"), ("GIT_AUTHOR_EMAIL", "t@example.com"),
+               ("GIT_COMMITTER_NAME", "t"), ("GIT_COMMITTER_EMAIL", "t@example.com")):
+    monkeypatch.setenv(k, v)
   mod = tmp_path / "demo"
   kit.new_module(mod)
-  return use, mod
+
+  def use(**kw):
+    fake = FakeGh(**kw)
+    monkeypatch.setattr(kit, "gh", fake)
+    real_push = kit.pages_push
+
+    def push(work, message):  # tell the fake which commit the build is for
+      fake.commit = real_push(work, message)
+      return fake.commit
+    monkeypatch.setattr(kit, "pages_push", push)
+    return fake
+  return use, mod, origin
 
 
-def test_publish_creates_site_and_writes_log(netlify):
-  use, mod = netlify
-  fake = use(states=("uploaded", "processing", "ready"))
-  rec = kit.publish(mod, sleep=lambda s: None)
-  assert rec["url"] == "https://s-new.netlify.app" and rec["site_id"] == "s-new"
-  assert rec["private"] is False
-  assert fake.calls[:3] == [("POST", "/sites", True), ("POST", "/sites/s-new/deploys", True),
-                            ("PUT", "/deploys/d-s-new/files/index.html", True)]
-  page = (mod / "dist" / "demo.html").read_bytes()
-  assert fake.bodies[("PUT", "/deploys/d-s-new/files/index.html")] == page
-  polls = [c for c in fake.calls if c[1] == "/deploys/d-s-new"]
-  assert polls == [("GET", "/deploys/d-s-new", False)] * 3
-  assert json.loads((mod / "publish.json").read_text())["site_id"] == "s-new"
-  assert (mod / "dist" / "demo.html").exists()  # publish builds first
+def pages_files(origin):
+  return set(run_git(origin, "ls-tree", "-r", "--name-only", "gh-pages").split())
 
 
-def test_deploy_manifest_serves_page_as_index_html():
-  # A zip deploy served the page as "/" with type text/plain; the manifest names index.html.
-  assert kit.deploy_manifest(b"<h1>x</h1>") == {
-    "files": {"/index.html": hashlib.sha1(b"<h1>x</h1>").hexdigest()}}
+def test_github_slug_reads_https_and_ssh_remotes():
+  monkey = kit.github_slug
+  assert monkey("https://github.com/agkunkle/learning-modules.git") == "agkunkle/learning-modules"
+  assert monkey("git@github.com:a/b") == "a/b"
+  with pytest.raises(kit.KitError, match="not a GitHub remote"):
+    monkey("/tmp/origin.git")
 
 
-def test_publish_redeploys_to_logged_site(netlify):
-  use, mod = netlify
-  fake = use(sites=("s-old",), required=False)
-  (mod / "publish.json").write_text(json.dumps({"site_id": "s-old", "url": "u"}))
-  rec = kit.publish(mod, sleep=lambda s: None)
-  assert rec["site_id"] == "s-old" and rec["deploy_id"] == "d-s-old"
-  assert ("POST", "/sites", True) not in fake.calls
-  assert not [c for c in fake.calls if c[0] == "PUT"]  # Netlify has the file already
+def test_pages_url_is_lowercase_owner_repo_module():
+  assert kit.pages_url("AgKunkle/learning-modules", "linux_elf") == \
+    "https://agkunkle.github.io/learning-modules/linux_elf/"
 
 
-def test_publish_creates_new_site_when_logged_site_is_gone(netlify):
-  use, mod = netlify
-  fake = use()
-  (mod / "publish.json").write_text(json.dumps({"site_id": "s-gone", "url": "u"}))
-  assert kit.publish(mod, sleep=lambda s: None)["site_id"] == "s-new"
-  assert fake.calls[:3] == [("POST", "/sites/s-gone/deploys", True), ("POST", "/sites", True),
-                            ("POST", "/sites/s-new/deploys", True)]
+def test_publish_pushes_index_html_turns_pages_on_and_writes_log(pages):
+  use, mod, origin = pages
+  fake = use(states=("building", "built"))
+  rec = kit.publish(mod, remote=str(origin), sleep=lambda s: None)
+  assert rec["url"] == "https://owner.github.io/repo/demo/" and rec["branch"] == "gh-pages"
+  assert pages_files(origin) == {".nojekyll", "demo/index.html"}
+  page = (mod / "dist" / "demo.html").read_text()
+  assert run_git(origin, "show", "gh-pages:demo/index.html") == page  # publish builds first
+  assert run_git(origin, "rev-parse", "gh-pages").strip() == rec["commit"]
+  posts = [c for c in fake.calls if c[1] == "-X"]
+  assert len(posts) == 1 and "source[branch]=gh-pages" in posts[0]
+  assert json.loads((mod / "publish.json").read_text())["commit"] == rec["commit"]
 
 
-def test_publish_refuses_internal_module_without_force(netlify):
-  use, mod = netlify
+def test_publish_again_updates_the_page_and_keeps_other_modules(pages):
+  use, mod, origin = pages
+  fake = use(pages_on=True)
+  kit.publish(mod, remote=str(origin), sleep=lambda s: None)
+  other = mod.parent / "other"
+  kit.new_module(other)
+  kit.publish(other, remote=str(origin), sleep=lambda s: None)
+  (mod / "module" / "content.html").write_text("<p>changed</p>")
+  rec = kit.publish(mod, remote=str(origin), sleep=lambda s: None)
+  assert pages_files(origin) == {".nojekyll", "demo/index.html", "other/index.html"}
+  assert "changed" in run_git(origin, "show", "gh-pages:demo/index.html")
+  assert not [c for c in fake.calls if c[1] == "-X"]  # Pages was already on
+  assert run_git(origin, "rev-list", "--count", "gh-pages").strip() == "3"
+  assert rec["commit"] == run_git(origin, "rev-parse", "gh-pages").strip()
+
+
+def test_publish_of_an_unchanged_module_makes_no_new_commit(pages):
+  use, mod, origin = pages
+  use(pages_on=True)
+  first = kit.publish(mod, remote=str(origin), sleep=lambda s: None)
+  assert kit.publish(mod, remote=str(origin), sleep=lambda s: None)["commit"] == first["commit"]
+
+
+def test_publish_refuses_private_modules_before_pushing(pages):
+  use, mod, origin = pages
   fake = use()
   js = mod / "module" / "module.js"
   js.write_text(js.read_text().replace("internal: false", "internal: true"))
   with pytest.raises(kit.KitError, match="team-internal"):
-    kit.publish(mod)
+    kit.publish(mod, remote=str(origin))
+  js.write_text(js.read_text().replace("internal: true", "internal: false"))
+  run_git(mod.parent, "init", "--quiet")
+  (mod.parent / ".gitignore").write_text("demo/\n")
+  with pytest.raises(kit.KitError, match="ignored by git"):
+    kit.publish(mod, remote=str(origin))
   assert fake.calls == []
-  assert kit.publish(mod, force=True, sleep=lambda s: None)["site_id"] == "s-new"
+  assert run_git(origin, "branch", "--list").strip() == ""
 
 
-def test_publish_fails_on_deploy_error_and_reports_private_sites(netlify):
-  use, mod = netlify
-  use(states=("error",))
-  with pytest.raises(kit.KitError, match="'error'"):
-    kit.publish(mod, sleep=lambda s: None)
+def test_publish_fails_when_the_pages_build_fails_or_never_starts(pages):
+  use, mod, origin = pages
+  use(pages_on=True, states=("errored",))
+  with pytest.raises(kit.KitError, match="errored"):
+    kit.publish(mod, remote=str(origin), sleep=lambda s: None)
   assert not (mod / "publish.json").exists()
-  use(sso=True)
-  assert kit.publish(mod, sleep=lambda s: None)["private"] is True
+  use(pages_on=True, states=("queued",))
+  with pytest.raises(kit.KitError, match="queued"):
+    kit.publish(mod, remote=str(origin), wait=10, sleep=lambda s: None)
 
 
-def test_unpublish_deletes_site_and_log_and_tolerates_404(netlify):
-  use, mod = netlify
-  fake = use(sites=("s-old",))
-  log = mod / "publish.json"
-  log.write_text(json.dumps({"site_id": "s-old", "url": "u"}))
-  assert kit.unpublish(mod)["site_id"] == "s-old"
-  assert fake.calls == [("DELETE", "/sites/s-old", False)] and not log.exists()
-  log.write_text(json.dumps({"site_id": "s-old", "url": "u"}))  # deleted in the UI meanwhile
-  kit.unpublish(mod)
-  assert not log.exists()
+def test_unpublish_removes_the_folder_and_log(pages):
+  use, mod, origin = pages
+  use(pages_on=True)
+  other = mod.parent / "other"
+  kit.new_module(other)
+  kit.publish(other, remote=str(origin), sleep=lambda s: None)
+  kit.publish(mod, remote=str(origin), sleep=lambda s: None)
+  assert kit.unpublish(mod, remote=str(origin))["url"].endswith("/demo/")
+  assert pages_files(origin) == {".nojekyll", "other/index.html"}
+  assert not (mod / "publish.json").exists()
   with pytest.raises(kit.KitError, match="not published"):
-    kit.unpublish(mod)
+    kit.unpublish(mod, remote=str(origin))
 
 
-def test_netlify_token_prefers_env_then_file(monkeypatch, tmp_path):
-  monkeypatch.setattr(kit, "TOKEN_FILE", tmp_path / "token")
-  monkeypatch.delenv("NETLIFY_AUTH_TOKEN", raising=False)
-  with pytest.raises(kit.KitError, match="no Netlify token"):
-    kit.netlify_token()
-  (tmp_path / "token").write_text("from-file\n")
-  assert kit.netlify_token() == "from-file"
-  monkeypatch.setenv("NETLIFY_AUTH_TOKEN", "from-env")
-  assert kit.netlify_token() == "from-env"
+def test_ensure_pages_accepts_pages_that_github_turned_on_meanwhile(monkeypatch):
+  calls = []
+
+  def fake(*args):
+    calls.append(args)
+    if args[1] == "-X":
+      raise kit.KitError("gh api -X POST: HTTP 422")
+    if len(calls) == 1:
+      raise kit.KitError("gh api repos/o/r/pages: Not Found (HTTP 404)")
+    return "{}"
+  monkeypatch.setattr(kit, "gh", fake)
+  kit.ensure_pages("o/r")  # the re-check finds Pages on: no error
+  assert len(calls) == 3
+  monkeypatch.setattr(kit, "gh", lambda *a: (_ for _ in ()).throw(
+    kit.KitError("gh api: Not Found (HTTP 404)")))
+  with pytest.raises(kit.KitError, match="404"):
+    kit.ensure_pages("o/r")
+
+
+def test_ensure_pages_rethrows_errors_other_than_not_found(monkeypatch):
+  def boom(*args):
+    raise kit.KitError("gh api repos/o/r/pages: HTTP 403")
+  monkeypatch.setattr(kit, "gh", boom)
+  with pytest.raises(kit.KitError, match="403"):
+    kit.ensure_pages("o/r")
 
 
 @pytest.mark.skipif(not kit.find_chrome(), reason="no Chrome/Chromium")

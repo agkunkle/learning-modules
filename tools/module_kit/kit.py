@@ -14,17 +14,17 @@
   kit.py shot <module> <fragment>...                screenshot hash fragments, e.g.
       "solo=clip:intro&t=4.5" "solo=diagram:map&flow=0&step=2" "at=setup&reveal", into
       <module>/check/shots/ (plus shots.jpg with more than one): to check one fix quickly
-  kit.py publish <module> [--force]                 build and deploy to Netlify; print the link
-      (public). Redeploys to the same link if <module>/publish.json exists. Refuses a
-      META.internal module without --force. Token: $NETLIFY_AUTH_TOKEN or ~/.config/netlify/token
-  kit.py unpublish <module>                         delete the module's Netlify site
+  kit.py publish <module>                           build and put it on GitHub Pages; print the link
+      (public: https://<owner>.github.io/<repo>/<module>/). Pushes <module>/index.html to the
+      gh-pages branch of origin and turns Pages on if needed (needs `gh` logged in). Refuses a
+      META.internal module and a git-ignored (private) module folder.
+  kit.py unpublish <module>                         remove the module from the gh-pages branch
 
 A module's sources live in <module>/module/: content.html (the prose and placeholders),
 module.js (META, CHECKS, NOTES, CLIPS, DIAGRAMS) and excerpts.json (code snapshots).
 """
 import argparse
 import base64
-import hashlib
 import html
 import json
 import os
@@ -61,9 +61,8 @@ PIC_W, PIC_H = 900, 640          # solo picture screenshots
 ONLY_ALL = ("pages", "clips", "diagrams", "pics")  # what check screenshots by default
 SHEET_PREFIX = {"pages": "pages_", "clips": "clip_", "diagrams": "diagram_", "pics": "pics"}
 SHEET_PAGES = 6                  # page shots per sheet
-NETLIFY_API = "https://api.netlify.com/api/v1"
-TOKEN_FILE = Path.home() / ".config" / "netlify" / "token"
-PUBLISH_LOG = "publish.json"     # <module>/publish.json: the Netlify site of the last publish
+PAGES_BRANCH = "gh-pages"       # the branch GitHub Pages serves (one folder per module)
+PUBLISH_LOG = "publish.json"    # <module>/publish.json: the link and commit of the last publish
 
 
 class KitError(Exception):
@@ -432,44 +431,22 @@ def check(module, only=ONLY_ALL, reveal=False, theme=None, shots=True, jobs=4):
   return 1 if errors or report["problems"] or bad_tests else 0
 
 
-# ---- publishing (Netlify) ------------------------------------------------------------------
+# ---- publishing (GitHub Pages) -------------------------------------------------------------
 
-class NetlifyError(KitError):
-  def __init__(self, status, msg):
-    super().__init__(msg)
-    self.status = status
-
-
-def netlify_token():
-  """The token from $NETLIFY_AUTH_TOKEN or TOKEN_FILE. Never print it."""
-  token = os.environ.get("NETLIFY_AUTH_TOKEN", "").strip()
-  if not token and TOKEN_FILE.exists():
-    token = TOKEN_FILE.read_text().strip()
-  if not token:
-    raise KitError(f"no Netlify token: set NETLIFY_AUTH_TOKEN or write it to {TOKEN_FILE}")
-  return token
+def gh(*args):
+  """One `gh` call (the GitHub CLI, already logged in); returns stdout."""
+  res = subprocess.run(["gh", *args], capture_output=True, text=True)
+  if res.returncode:
+    raise KitError(f"gh {' '.join(args[:3])}: {(res.stderr or res.stdout).strip()[:200]}")
+  return res.stdout
 
 
-def netlify(method, path, token, data=None):
-  """One Netlify API call. data: a dict (sent as JSON) or bytes (a file body). Returns the
-  parsed JSON, or None if empty."""
-  req = urllib.request.Request(NETLIFY_API + path, method=method,
-                               headers={"Authorization": f"Bearer {token}"})
-  if isinstance(data, dict):
-    req.data = json.dumps(data).encode()
-    req.add_header("Content-Type", "application/json")
-  elif data is not None:
-    req.data = data
-    req.add_header("Content-Type", "application/octet-stream")
-  try:
-    with urllib.request.urlopen(req, timeout=120) as res:
-      body = res.read()
-  except urllib.error.HTTPError as e:
-    detail = e.read()[:200].decode(errors="replace").strip()
-    raise NetlifyError(e.code, f"Netlify {method} {path}: HTTP {e.code} {detail}") from None
-  except urllib.error.URLError as e:
-    raise KitError(f"Netlify {method} {path}: {e.reason}") from None
-  return json.loads(body) if body.strip() else None
+def github_slug(remote):
+  """'owner/repo' of a GitHub remote URL."""
+  m = re.search(r"github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?/?$", remote)
+  if not m:
+    raise KitError(f"{remote} is not a GitHub remote: publish needs GitHub Pages")
+  return f"{m[1]}/{m[2]}"
 
 
 def is_internal(module):
@@ -477,66 +454,128 @@ def is_internal(module):
   return re.search(r"\binternal\s*:\s*true\b", js) is not None
 
 
-def deploy_manifest(body):
-  """The file-digest deploy body: the page as /index.html, so the site root serves it as HTML.
-  (A zip deploy of the same file came out as "/" with type text/plain: raw source.)"""
-  return {"files": {"/index.html": hashlib.sha1(body).hexdigest()}}
+def is_git_ignored(module):
+  """True if git ignores the module folder (a private module: the repo is public)."""
+  module = Path(module).resolve()
+  res = subprocess.run(["git", "-C", str(module), "check-ignore", "-q", str(module)],
+                       capture_output=True)
+  return res.returncode == 0
 
 
-def publish(module, force=False, wait=90, sleep=time.sleep):
-  """Build the module and deploy it to Netlify. A module with a publish log is redeployed to
-  the same site (same link); otherwise a new site is created. Returns the log record."""
-  module = Path(module)
-  if is_internal(module) and not force:
-    raise KitError(f"{module} is team-internal (META.internal = true) and a Netlify link is "
-                   "public; add --force to publish it anyway")
-  page = build(module)
-  token = netlify_token()
-  log_path = module / PUBLISH_LOG
-  old = json.loads(log_path.read_text()) if log_path.exists() else None
-  body = Path(page).read_bytes()
-  site_id = deploy = None
-  if old:
+def pages_url(slug, name):
+  owner, repo = slug.split("/")
+  return f"https://{owner.lower()}.github.io/{repo}/{name}/"
+
+
+def pages_clone(remote, work):
+  """Clone PAGES_BRANCH of `remote` into `work`; start an empty branch if it does not exist."""
+  if git(work.parent, "ls-remote", "--heads", remote, PAGES_BRANCH).strip():
+    git(work.parent, "clone", "--quiet", "--depth", "1", "--branch", PAGES_BRANCH, remote,
+        work.name)
+  else:
+    git(work.parent, "init", "--quiet", work.name)
+    git(work, "checkout", "--quiet", "--orphan", PAGES_BRANCH)
+    git(work, "remote", "add", "origin", remote)
+  (work / ".nojekyll").touch()  # serve the files as they are: no Jekyll build
+
+
+def pages_push(work, message):
+  """Commit and push the work tree. Returns the head commit (unchanged if nothing changed)."""
+  git(work, "add", "-A")
+  if git(work, "status", "--porcelain").strip():
+    git(work, "commit", "--quiet", "-m", message)
+    git(work, "push", "--quiet", "origin", f"HEAD:refs/heads/{PAGES_BRANCH}")
+  return git(work, "rev-parse", "HEAD").strip()
+
+
+def ensure_pages(slug):
+  """Turn GitHub Pages on for the repo (source: PAGES_BRANCH, root) unless it is on. GitHub may
+  switch Pages on by itself when the branch first appears, so a failed enable is re-checked."""
+  try:
+    gh("api", f"repos/{slug}/pages")
+  except KitError as e:
+    if "404" not in str(e):
+      raise
     try:
-      deploy = netlify("POST", f"/sites/{old['site_id']}/deploys", token, deploy_manifest(body))
-      site_id = old["site_id"]
-    except NetlifyError as e:
-      if e.status != 404:
-        raise
-  if site_id is None:  # first publish, or the old site was deleted
-    site_id = netlify("POST", "/sites", token, {})["id"]
-    deploy = netlify("POST", f"/sites/{site_id}/deploys", token, deploy_manifest(body))
-  deploy_id = deploy["id"]
-  if deploy.get("required"):  # Netlify lacks this file version: upload it
-    netlify("PUT", f"/deploys/{deploy_id}/files/index.html", token, body)
-  state = None
-  for _ in range(max(1, wait // 2)):
-    state = netlify("GET", f"/deploys/{deploy_id}", token)["state"]
-    if state in ("ready", "error"):
-      break
-    sleep(2)
-  if state != "ready":
-    raise KitError(f"Netlify deploy {deploy_id} of site {site_id} ended in state {state!r}")
-  # the create response can lack ssl_url, so read the site back
-  site = netlify("GET", f"/sites/{site_id}", token)
-  rec = {"site_id": site_id, "url": site.get("ssl_url") or site.get("url"),
-         "deploy_id": deploy_id, "private": bool(site.get("sso_login")),
+      gh("api", "-X", "POST", f"repos/{slug}/pages", "-f", f"source[branch]={PAGES_BRANCH}",
+         "-f", "source[path]=/")
+    except KitError:
+      gh("api", f"repos/{slug}/pages")  # still off: this raises the real error
+
+
+def wait_for_build(slug, commit, wait, sleep):
+  """Wait until the Pages build of `commit` is done. Returns its status (or the last seen)."""
+  status = None
+  for _ in range(max(1, wait // 5)):
+    try:
+      build_info = json.loads(gh("api", f"repos/{slug}/pages/builds/latest"))
+    except (KitError, ValueError):  # no build yet right after Pages was turned on
+      build_info = {}
+    if build_info.get("commit") == commit:
+      status = build_info.get("status")
+      if status in ("built", "errored"):
+        break
+    sleep(5)
+  return status
+
+
+def served_type(url, tries=6, sleep=time.sleep):
+  """Content-Type of the published page, or None if it did not answer in time."""
+  for _ in range(tries):
+    try:
+      req = urllib.request.Request(url, method="HEAD")
+      with urllib.request.urlopen(req, timeout=20) as res:
+        return res.headers.get("Content-Type")
+    except (urllib.error.URLError, OSError):
+      sleep(5)
+  return None
+
+
+def publish(module, remote=None, wait=180, sleep=time.sleep):
+  """Build the module and put it on GitHub Pages: <module>/index.html on the PAGES_BRANCH branch
+  of the repo's origin. Turns Pages on if needed. Returns the log record (also written to
+  <module>/publish.json). Private modules (internal, or ignored by git) are refused: the repo and
+  the site are public."""
+  module = Path(module)
+  if is_internal(module):
+    raise KitError(f"{module} is team-internal (META.internal = true): a Pages site is public")
+  if is_git_ignored(module):
+    raise KitError(f"{module} is ignored by git (a private module): a Pages site is public")
+  page = build(module)
+  remote = remote or git(module.resolve(), "remote", "get-url", "origin").strip()
+  slug, name = github_slug(remote), module.resolve().name
+  with tempfile.TemporaryDirectory(prefix="module_kit_pages_") as tmp:
+    work = Path(tmp) / "pages"
+    pages_clone(remote, work)
+    (work / name).mkdir(exist_ok=True)
+    shutil.copyfile(page, work / name / "index.html")
+    commit = pages_push(work, f"docs(pages): publish {name}")
+  ensure_pages(slug)
+  status = wait_for_build(slug, commit, wait, sleep)
+  if status != "built":
+    raise KitError(f"GitHub Pages build of {commit[:7]} is {status or 'not started'}: see "
+                   f"https://github.com/{slug}/actions")
+  rec = {"url": pages_url(slug, name), "branch": PAGES_BRANCH, "commit": commit,
          "published": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-  log_path.write_text(json.dumps(rec, indent=2) + "\n")
+  (module / PUBLISH_LOG).write_text(json.dumps(rec, indent=2) + "\n")
   return rec
 
 
-def unpublish(module):
-  """Delete the module's Netlify site and its publish log. Returns the old log record."""
-  log_path = Path(module) / PUBLISH_LOG
+def unpublish(module, remote=None):
+  """Remove the module from the PAGES_BRANCH branch and delete its publish log. The old page
+  stays in that branch's git history. Returns the old log record."""
+  module = Path(module)
+  log_path = module / PUBLISH_LOG
   if not log_path.exists():
     raise KitError(f"{log_path} not found: this module is not published")
   rec = json.loads(log_path.read_text())
-  try:
-    netlify("DELETE", f"/sites/{rec['site_id']}", netlify_token())
-  except NetlifyError as e:
-    if e.status != 404:  # 404: already deleted (e.g. in the Netlify UI)
-      raise
+  remote = remote or git(module.resolve(), "remote", "get-url", "origin").strip()
+  name = module.resolve().name
+  with tempfile.TemporaryDirectory(prefix="module_kit_pages_") as tmp:
+    work = Path(tmp) / "pages"
+    pages_clone(remote, work)
+    shutil.rmtree(work / name, ignore_errors=True)
+    pages_push(work, f"docs(pages): remove {name}")
   log_path.unlink()
   return rec
 
@@ -568,7 +607,6 @@ def main(argv=None):
   p.add_argument("--jobs", type=int, default=4)
   p = sub.add_parser("publish")
   p.add_argument("module")
-  p.add_argument("--force", action="store_true", help="publish a META.internal module too")
   sub.add_parser("unpublish").add_argument("module")
   args = ap.parse_args(argv)
   try:
@@ -590,15 +628,15 @@ def main(argv=None):
       for path in shot(args.module, args.fragments, args.jobs):
         print(f"shot: {path}")
     elif args.cmd == "publish":
-      rec = publish(args.module, args.force)
-      print(f"published {rec['url']} (site {rec['site_id']})")
-      if rec["private"]:
-        print("warning: the site is private (Netlify team login); set the team's default project "
-              "visibility to public, or make this project public in the Netlify UI",
+      rec = publish(args.module)
+      print(f"published {rec['url']} (commit {rec['commit'][:7]})")
+      kind = served_type(rec["url"])
+      if not (kind or "").startswith("text/html"):
+        print(f"warning: {rec['url']} answered with content-type {kind!r}: open it and check",
               file=sys.stderr)
     elif args.cmd == "unpublish":
       rec = unpublish(args.module)
-      print(f"deleted {rec['url']} (site {rec['site_id']})")
+      print(f"removed {rec['url']} (the page stays in the gh-pages git history)")
     else:
       return check(args.module, tuple(args.only.split(",")), args.reveal, args.theme,
                    not args.no_shots, args.jobs)

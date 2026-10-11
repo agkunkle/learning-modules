@@ -1,0 +1,210 @@
+{
+ "demo_asm": {
+  "file": "demo.s",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 1,
+  "lang": "text",
+  "text": "// demo.s: tiny AArch64 Linux example for the ELF module. Never executed.\n        .text\n        .globl  _start\n_start:\n        adrp    x0, msg                 // page of msg\n        add     x0, x0, :lo12:msg       // low 12 bits of msg\n        adrp    x1, counter\n        add     x1, x1, :lo12:counter\n        bl      helper                  // external call: needs a CALL26 relocation\n        mov     x8, #93                 // exit\n        svc     #0\n\n        .section .rodata\nmsg:    .asciz  \"hello, elf\\n\"\n\n        .data\n        .globl  counter\ncounter: .quad  7\n\n        .bss\n        .globl  buffer\nbuffer: .skip   4096"
+ },
+ "demo_ld": {
+  "file": "demo.ld",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 1,
+  "lang": "text",
+  "text": "/* Three PT_LOAD segments: RX (headers + .text), R (.rodata), RW (.data + .bss). */\nENTRY(_start)\nPHDRS {\n  rx PT_LOAD FILEHDR PHDRS FLAGS(5);\n  ro PT_LOAD FLAGS(4);\n  rw PT_LOAD FLAGS(6);\n}\nSECTIONS {\n  . = 0x400000 + SIZEOF_HEADERS;\n  .text   : { *(.text*) }   :rx\n  . = ALIGN(0x10000) + (. & 0xffff);\n  .rodata : { *(.rodata*) } :ro\n  . = ALIGN(0x10000) + (. & 0xffff);\n  .data   : { *(.data*) }   :rw\n  .bss    : { *(.bss*) *(COMMON) } :rw\n}"
+ },
+ "demo_h": {
+  "file": "output/demo_h.txt",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 1,
+  "lang": "text",
+  "text": "ELF Header:\n  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00 \n  Class:                             ELF64\n  Data:                              2's complement, little endian\n  Version:                           1 (current)\n  OS/ABI:                            UNIX - System V\n  ABI Version:                       0\n  Type:                              EXEC (Executable file)\n  Machine:                           AArch64\n  Version:                           0x1\n  Entry point address:               0x4000e8\n  Start of program headers:          64 (bytes into file)\n  Start of section headers:          760 (bytes into file)\n  Flags:                             0x0\n  Size of this header:               64 (bytes)\n  Size of program headers:           56 (bytes)\n  Number of program headers:         3\n  Size of section headers:           64 (bytes)\n  Number of section headers:         8\n  Section header string table index: 7"
+ },
+ "demo_l": {
+  "file": "output/demo_l.txt",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 2,
+  "lang": "text",
+  "text": "Elf file type is EXEC (Executable file)\nEntry point 0x4000e8\nThere are 3 program headers, starting at offset 64\n\nProgram Headers:\n  Type           Offset   VirtAddr           PhysAddr           FileSiz  MemSiz   Flg Align\n  LOAD           0x000000 0x0000000000400000 0x0000000000400000 0x000108 0x000108 R E 0x10000\n  LOAD           0x000108 0x0000000000410108 0x0000000000410108 0x00000c 0x00000c R   0x10000\n  LOAD           0x000114 0x0000000000420114 0x0000000000420114 0x000008 0x001008 RW  0x10000\n\n Section to Segment mapping:\n  Segment Sections...\n   00     .text \n   01     .rodata \n   02     .data .bss "
+ },
+ "demo_S": {
+  "file": "output/demo_S.txt",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 3,
+  "lang": "text",
+  "text": "Section Headers:\n  [Nr] Name              Type            Address          Off    Size   ES Flg Lk Inf Al\n  [ 0]                   NULL            0000000000000000 000000 000000 00      0   0  0\n  [ 1] .text             PROGBITS        00000000004000e8 0000e8 000020 00  AX  0   0  4\n  [ 2] .rodata           PROGBITS        0000000000410108 000108 00000c 00   A  0   0  1\n  [ 3] .data             PROGBITS        0000000000420114 000114 000008 00  WA  0   0  1\n  [ 4] .bss              NOBITS          000000000042011c 00011c 001000 00  WA  0   0  1\n  [ 5] .symtab           SYMTAB          0000000000000000 000120 000168 18      6  11  8\n  [ 6] .strtab           STRTAB          0000000000000000 000288 000038 00      0   0  1\n  [ 7] .shstrtab         STRTAB          0000000000000000 0002c0 000034 00      0   0  1"
+ },
+ "demo_o_r": {
+  "file": "output/demo_o_r.txt",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 2,
+  "lang": "text",
+  "text": "Relocation section '.rela.text' at offset 0x1b8 contains 5 entries:\n    Offset             Info             Type               Symbol's Value  Symbol's Name + Addend\n0000000000000000  0000000600000113 R_AARCH64_ADR_PREL_PG_HI21 0000000000000000 .rodata + 0\n0000000000000004  0000000600000115 R_AARCH64_ADD_ABS_LO12_NC 0000000000000000 .rodata + 0\n0000000000000008  0000000900000113 R_AARCH64_ADR_PREL_PG_HI21 0000000000000000 counter + 0\n000000000000000c  0000000900000115 R_AARCH64_ADD_ABS_LO12_NC 0000000000000000 counter + 0\n0000000000000010  0000000a0000011b R_AARCH64_CALL26       0000000000000000 helper + 0"
+ },
+ "demo_o_s": {
+  "file": "output/demo_o_s.txt",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 2,
+  "lang": "text",
+  "text": "Symbol table '.symtab' contains 12 entries:\n   Num:    Value          Size Type    Bind   Vis      Ndx Name\n     0: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT  UND \n     1: 0000000000000000     0 SECTION LOCAL  DEFAULT    1 .text\n     2: 0000000000000000     0 SECTION LOCAL  DEFAULT    3 .data\n     3: 0000000000000000     0 SECTION LOCAL  DEFAULT    4 .bss\n     4: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT    1 $x\n     5: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT    5 msg\n     6: 0000000000000000     0 SECTION LOCAL  DEFAULT    5 .rodata\n     7: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT    4 $d\n     8: 0000000000000000     0 NOTYPE  GLOBAL DEFAULT    1 _start\n     9: 0000000000000000     0 NOTYPE  GLOBAL DEFAULT    3 counter\n    10: 0000000000000000     0 NOTYPE  GLOBAL DEFAULT  UND helper\n    11: 0000000000000000     0 NOTYPE  GLOBAL DEFAULT    4 buffer"
+ },
+ "dyn_l": {
+  "file": "output/dyn_l.txt",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 2,
+  "lang": "text",
+  "text": "Elf file type is DYN (Position-Independent Executable file)\nEntry point 0x2d0\nThere are 6 program headers, starting at offset 64\n\nProgram Headers:\n  Type           Offset   VirtAddr           PhysAddr           FileSiz  MemSiz   Flg Align\n  PHDR           0x000040 0x0000000000000040 0x0000000000000040 0x000150 0x000150 R   0x8\n  INTERP         0x000190 0x0000000000000190 0x0000000000000190 0x00001b 0x00001b R   0x1\n      [Requesting program interpreter: /lib/ld-linux-aarch64.so.1]\n  LOAD           0x000000 0x0000000000000000 0x0000000000000000 0x0002e4 0x0002e4 R E 0x10000\n  LOAD           0x000e80 0x0000000000010e80 0x0000000000010e80 0x000190 0x000190 RW  0x10000\n  DYNAMIC        0x000e80 0x0000000000010e80 0x0000000000010e80 0x000160 0x000160 RW  0x8\n  GNU_RELRO      0x000e80 0x0000000000010e80 0x0000000000010e80 0x000180 0x000180 R   0x1\n\n Section to Segment mapping:\n  Segment Sections...\n   00     \n   01     .interp \n   02     .interp .hash .gnu.hash .dynsym .dynstr .rela.dyn .rela.plt .plt .text \n   03     .dynamic .got .got.plt .data \n   04     .dynamic \n   05     .dynamic .got "
+ },
+ "dyn_d": {
+  "file": "output/dyn_d.txt",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 2,
+  "lang": "text",
+  "text": "Dynamic section at offset 0xe80 contains 18 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libstub.so]\n 0x0000000000000004 (HASH)               0x1b0\n 0x000000006ffffef5 (GNU_HASH)           0x1d0\n 0x0000000000000005 (STRTAB)             0x250\n 0x0000000000000006 (SYMTAB)             0x1f0\n 0x000000000000000a (STRSZ)              22 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000015 (DEBUG)              0x0\n 0x0000000000000003 (PLTGOT)             0x10fe8\n 0x0000000000000002 (PLTRELSZ)           24 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x280\n 0x0000000000000007 (RELA)               0x268\n 0x0000000000000008 (RELASZ)             24 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffffb (FLAGS_1)            Flags: PIE\n 0x000000006ffffff9 (RELACOUNT)          1\n 0x0000000000000000 (NULL)               0x0"
+ },
+ "dyn_r": {
+  "file": "output/dyn_r.txt",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 2,
+  "lang": "text",
+  "text": "Relocation section '.rela.dyn' at offset 0x268 contains 1 entry:\n    Offset             Info             Type               Symbol's Value  Symbol's Name + Addend\n0000000000011008  0000000000000403 R_AARCH64_RELATIVE                        2d0\n\nRelocation section '.rela.plt' at offset 0x280 contains 1 entry:\n    Offset             Info             Type               Symbol's Value  Symbol's Name + Addend\n0000000000011000  0000000300000402 R_AARCH64_JUMP_SLOT    0000000000000000 stub_call + 0"
+ },
+ "phdr_struct": {
+  "file": "man/man5/elf.5",
+  "repo": "man-pages 6.15",
+  "commit": null,
+  "start": 644,
+  "lang": "text",
+  "text": "typedef struct {\n    uint32_t   p_type;\n    uint32_t   p_flags;\n    Elf64_Off  p_offset;\n    Elf64_Addr p_vaddr;\n    Elf64_Addr p_paddr;\n    uint64_t   p_filesz;\n    uint64_t   p_memsz;\n    uint64_t   p_align;\n} Elf64_Phdr;"
+ },
+ "k_elf_map": {
+  "file": "fs/binfmt_elf.c",
+  "repo": "linux v6.12",
+  "commit": "adc218676eef",
+  "start": 351,
+  "lang": "text",
+  "text": "/*\n * Map \"eppnt->p_filesz\" bytes from \"filep\" offset \"eppnt->p_offset\"\n * into memory at \"addr\". (Note that p_filesz is rounded up to the\n * next page, so any extra bytes from the file must be wiped.)\n */\nstatic unsigned long elf_map(struct file *filep, unsigned long addr,\n\t\tconst struct elf_phdr *eppnt, int prot, int type,\n\t\tunsigned long total_size)\n{\n\tunsigned long map_addr;\n\tunsigned long size = eppnt->p_filesz + ELF_PAGEOFFSET(eppnt->p_vaddr);\n\tunsigned long off = eppnt->p_offset - ELF_PAGEOFFSET(eppnt->p_vaddr);\n\taddr = ELF_PAGESTART(addr);\n\tsize = ELF_PAGEALIGN(size);\n\n\t/* mmap() will return -EINVAL if given a zero size, but a\n\t * segment with zero filesize is perfectly valid */\n\tif (!size)\n\t\treturn addr;"
+ },
+ "k_elf_load": {
+  "file": "fs/binfmt_elf.c",
+  "repo": "linux v6.12",
+  "commit": "adc218676eef",
+  "start": 395,
+  "lang": "text",
+  "text": "/*\n * Map \"eppnt->p_filesz\" bytes from \"filep\" offset \"eppnt->p_offset\"\n * into memory at \"addr\". Memory from \"p_filesz\" through \"p_memsz\"\n * rounded up to the next page is zeroed.\n */\nstatic unsigned long elf_load(struct file *filep, unsigned long addr,\n\t\tconst struct elf_phdr *eppnt, int prot, int type,\n\t\tunsigned long total_size)\n{\n\tunsigned long zero_start, zero_end;\n\tunsigned long map_addr;\n\n\tif (eppnt->p_filesz) {\n\t\tmap_addr = elf_map(filep, addr, eppnt, prot, type, total_size);\n\t\tif (BAD_ADDR(map_addr))\n\t\t\treturn map_addr;\n\t\tif (eppnt->p_memsz > eppnt->p_filesz) {\n\t\t\tzero_start = map_addr + ELF_PAGEOFFSET(eppnt->p_vaddr) +\n\t\t\t\teppnt->p_filesz;\n\t\t\tzero_end = map_addr + ELF_PAGEOFFSET(eppnt->p_vaddr) +\n\t\t\t\teppnt->p_memsz;\n\n\t\t\t/*\n\t\t\t * Zero the end of the last mapped page but ignore\n\t\t\t * any errors if the segment isn't writable.\n\t\t\t */\n\t\t\tif (padzero(zero_start) && (prot & PROT_WRITE))\n\t\t\t\treturn -EFAULT;\n\t\t}\n\t} else {\n\t\tmap_addr = zero_start = ELF_PAGESTART(addr);\n\t\tzero_end = zero_start + ELF_PAGEOFFSET(eppnt->p_vaddr) +\n\t\t\teppnt->p_memsz;\n\t}\n\tif (eppnt->p_memsz > eppnt->p_filesz) {\n\t\t/*\n\t\t * Map the last of the segment.\n\t\t * If the header is requesting these pages to be\n\t\t * executable, honour that (ppc32 needs this).\n\t\t */\n\t\tint error;\n\n\t\tzero_start = ELF_PAGEALIGN(zero_start);\n\t\tzero_end = ELF_PAGEALIGN(zero_end);\n\n\t\terror = vm_brk_flags(zero_start, zero_end - zero_start,\n\t\t\t\t     prot & PROT_EXEC ? VM_EXEC : 0);\n\t\tif (error)\n\t\t\tmap_addr = error;\n\t}\n\treturn map_addr;\n}\n"
+ },
+ "k_make_prot": {
+  "file": "fs/binfmt_elf.c",
+  "repo": "linux v6.12",
+  "commit": "adc218676eef",
+  "start": 611,
+  "lang": "text",
+  "text": "static inline int make_prot(u32 p_flags, struct arch_elf_state *arch_state,\n\t\t\t    bool has_interp, bool is_interp)\n{\n\tint prot = 0;\n\n\tif (p_flags & PF_R)\n\t\tprot |= PROT_READ;\n\tif (p_flags & PF_W)\n\t\tprot |= PROT_WRITE;\n\tif (p_flags & PF_X)\n\t\tprot |= PROT_EXEC;\n\n\treturn arch_elf_adjust_prot(prot, arch_state, has_interp, is_interp);\n}"
+ },
+ "k_load_bias": {
+  "file": "fs/binfmt_elf.c",
+  "repo": "linux v6.12",
+  "commit": "adc218676eef",
+  "start": 1118,
+  "lang": "text",
+  "text": "\t\t\t\t/* On ET_DYN with PT_INTERP, we do the ASLR. */\n\t\t\t\tload_bias = ELF_ET_DYN_BASE;\n\t\t\t\tif (current->flags & PF_RANDOMIZE)\n\t\t\t\t\tload_bias += arch_mmap_rnd();\n\t\t\t\t/* Adjust alignment as requested. */\n\t\t\t\tif (alignment)\n\t\t\t\t\tload_bias &= ~(alignment - 1);\n\t\t\t\telf_flags |= MAP_FIXED_NOREPLACE;"
+ },
+ "g_start": {
+  "file": "sysdeps/aarch64/start.S",
+  "repo": "glibc 2.41",
+  "commit": "74f59e9271cb",
+  "start": 63,
+  "lang": "text",
+  "text": "ENTRY(_start)\n\t/* Create an initial frame with 0 LR and FP */\n\tcfi_undefined (x30)\n\tmov\tx29, #0\n\tmov\tx30, #0\n\n\t/* Setup rtld_fini in argument register */\n\tmov\tx5, x0\n\n\t/* Load argc and a pointer to argv */\n\tldr\tPTR_REG (1), [sp, #0]\n\tadd\tx2, sp, #PTR_SIZE\n\n\t/* Setup stack limit in argument register */\n\tmov\tx6, sp\n\n#ifdef PIC\n# ifdef SHARED\n        adrp    x0, :got:main\n\tldr     PTR_REG (0), [x0, #:got_lo12:main]\n# else\n\tadrp\tx0, __wrap_main\n\tadd\tx0, x0, :lo12:__wrap_main\n# endif\n#else\n\t/* Set up the other arguments in registers */\n\tMOVL (0, main)\n#endif\n\tmov\tx3, #0\t\t/* Used to be init.  */\n\tmov\tx4, #0\t\t/* Used to be fini.  */\n\n\t/* __libc_start_main (main, argc, argv, init, fini, rtld_fini,\n\t\t\t      stack_end) */\n\n\t/* Let the libc call main and exit with its return code.  */\n\tbl\t__libc_start_main\n\n\t/* should never get here....*/"
+ },
+ "g_reloc": {
+  "file": "sysdeps/aarch64/dl-machine.h",
+  "repo": "glibc 2.41",
+  "commit": "74f59e9271cb",
+  "start": 174,
+  "lang": "text",
+  "text": "  ElfW(Addr) *const reloc_addr = reloc_addr_arg;\n  const unsigned int r_type = ELFW (R_TYPE) (reloc->r_info);\n\n  if (__builtin_expect (r_type == AARCH64_R(RELATIVE), 0))\n      *reloc_addr = map->l_addr + reloc->r_addend;"
+ },
+ "demo_o_dis": {
+  "file": "output/demo_o_dis.txt",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 7,
+  "lang": "text",
+  "text": "0000000000000000 <_start>:\n   0:\t90000000 \tadrp\tx0, 0 <_start>\n\t\t\t0: R_AARCH64_ADR_PREL_PG_HI21\t.rodata\n   4:\t91000000 \tadd\tx0, x0, #0x0\n\t\t\t4: R_AARCH64_ADD_ABS_LO12_NC\t.rodata\n   8:\t90000001 \tadrp\tx1, 0 <_start>\n\t\t\t8: R_AARCH64_ADR_PREL_PG_HI21\tcounter\n   c:\t91000021 \tadd\tx1, x1, #0x0\n\t\t\tc: R_AARCH64_ADD_ABS_LO12_NC\tcounter\n  10:\t94000000 \tbl\t0 <helper>\n\t\t\t10: R_AARCH64_CALL26\thelper\n  14:\td2800ba8 \tmov\tx8, #0x5d                  \t// #93\n  18:\td4000001 \tsvc\t#0x0"
+ },
+ "demo_dis": {
+  "file": "output/demo_dis.txt",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 7,
+  "lang": "text",
+  "text": "00000000004000e8 <_start>:\n  4000e8:\t90000080 \tadrp\tx0, 410000 <helper+0xfefc>\n  4000ec:\t91042000 \tadd\tx0, x0, #0x108\n  4000f0:\t90000101 \tadrp\tx1, 420000 <msg+0xfef8>\n  4000f4:\t91045021 \tadd\tx1, x1, #0x114\n  4000f8:\t94000003 \tbl\t400104 <helper>\n  4000fc:\td2800ba8 \tmov\tx8, #0x5d                  \t// #93\n  400100:\td4000001 \tsvc\t#0x0\n\n0000000000400104 <helper>:\n  400104:\td65f03c0 \tret"
+ },
+ "demo_hex64": {
+  "file": "output/demo_hex64.txt",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 1,
+  "lang": "text",
+  "text": "00000000: 7f45 4c46 0201 0100 0000 0000 0000 0000  .ELF............\n00000010: 0200 b700 0100 0000 e800 4000 0000 0000  ..........@.....\n00000020: 4000 0000 0000 0000 f802 0000 0000 0000  @...............\n00000030: 0000 0000 4000 3800 0300 4000 0800 0700  ....@.8...@....."
+ },
+ "nosect_S": {
+  "file": "output/nosect_S.txt",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 2,
+  "lang": "text",
+  "text": "There are no sections in this file."
+ },
+ "nosect_l": {
+  "file": "output/nosect_l.txt",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 2,
+  "lang": "text",
+  "text": "Elf file type is EXEC (Executable file)\nEntry point 0x4000e8\nThere are 3 program headers, starting at offset 64\n\nProgram Headers:\n  Type           Offset   VirtAddr           PhysAddr           FileSiz  MemSiz   Flg Align\n  LOAD           0x000000 0x0000000000400000 0x0000000000400000 0x000108 0x000108 R E 0x10000\n  LOAD           0x000108 0x0000000000410108 0x0000000000410108 0x00000c 0x00000c R   0x10000\n  LOAD           0x000114 0x0000000000420114 0x0000000000420114 0x000008 0x001008 RW  0x10000"
+ },
+ "demo_s": {
+  "file": "output/demo_s.txt",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 2,
+  "lang": "text",
+  "text": "Symbol table '.symtab' contains 15 entries:\n   Num:    Value          Size Type    Bind   Vis      Ndx Name\n     0: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT  UND \n     1: 00000000004000e8     0 SECTION LOCAL  DEFAULT    1 .text\n     2: 0000000000410108     0 SECTION LOCAL  DEFAULT    2 .rodata\n     3: 0000000000420114     0 SECTION LOCAL  DEFAULT    3 .data\n     4: 000000000042011c     0 SECTION LOCAL  DEFAULT    4 .bss\n     5: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS demo.o\n     6: 00000000004000e8     0 NOTYPE  LOCAL  DEFAULT    1 $x\n     7: 0000000000410108     0 NOTYPE  LOCAL  DEFAULT    2 msg\n     8: 000000000042011c     0 NOTYPE  LOCAL  DEFAULT    4 $d\n     9: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS helper.o\n    10: 0000000000400104     0 NOTYPE  LOCAL  DEFAULT    1 $x\n    11: 0000000000400104     0 NOTYPE  GLOBAL DEFAULT    1 helper\n    12: 00000000004000e8     0 NOTYPE  GLOBAL DEFAULT    1 _start\n    13: 000000000042011c     0 NOTYPE  GLOBAL DEFAULT    4 buffer\n    14: 0000000000420114     0 NOTYPE  GLOBAL DEFAULT    3 counter"
+ },
+ "stripped_S": {
+  "file": "output/stripped_S.txt",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 3,
+  "lang": "text",
+  "text": "Section Headers:\n  [Nr] Name              Type            Address          Off    Size   ES Flg Lk Inf Al\n  [ 0]                   NULL            0000000000000000 000000 000000 00      0   0  0\n  [ 1] .text             PROGBITS        00000000004000e8 0000e8 000020 00  AX  0   0  4\n  [ 2] .rodata           PROGBITS        0000000000410108 000108 00000c 00   A  0   0  1\n  [ 3] .data             PROGBITS        0000000000420114 000114 000008 00  WA  0   0  1\n  [ 4] .bss              NOBITS          000000000042011c 00011c 001000 00  WA  0   0  1\n  [ 5] .shstrtab         STRTAB          0000000000000000 00011c 000024 00      0   0  1"
+ },
+ "dyn_h": {
+  "file": "output/dyn_h.txt",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 8,
+  "lang": "text",
+  "text": "  Type:                              DYN (Position-Independent Executable file)\n  Machine:                           AArch64\n  Version:                           0x1\n  Entry point address:               0x2d0"
+ },
+ "libstub_h": {
+  "file": "output/libstub_h.txt",
+  "repo": "linux_elf fixtures",
+  "commit": null,
+  "start": 8,
+  "lang": "text",
+  "text": "  Type:                              DYN (Shared object file)\n  Machine:                           AArch64\n  Version:                           0x1\n  Entry point address:               0x0"
+ }
+}

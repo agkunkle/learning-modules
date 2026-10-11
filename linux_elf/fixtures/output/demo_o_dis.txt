@@ -1,0 +1,19 @@
+
+build/demo.o:     file format elf64-littleaarch64
+
+
+Disassembly of section .text:
+
+0000000000000000 <_start>:
+   0:	90000000 	adrp	x0, 0 <_start>
+			0: R_AARCH64_ADR_PREL_PG_HI21	.rodata
+   4:	91000000 	add	x0, x0, #0x0
+			4: R_AARCH64_ADD_ABS_LO12_NC	.rodata
+   8:	90000001 	adrp	x1, 0 <_start>
+			8: R_AARCH64_ADR_PREL_PG_HI21	counter
+   c:	91000021 	add	x1, x1, #0x0
+			c: R_AARCH64_ADD_ABS_LO12_NC	counter
+  10:	94000000 	bl	0 <helper>
+			10: R_AARCH64_CALL26	helper
+  14:	d2800ba8 	mov	x8, #0x5d                  	// #93
+  18:	d4000001 	svc	#0x0

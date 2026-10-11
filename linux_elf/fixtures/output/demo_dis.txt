@@ -1,0 +1,17 @@
+
+build/demo.elf:     file format elf64-littleaarch64
+
+
+Disassembly of section .text:
+
+00000000004000e8 <_start>:
+  4000e8:	90000080 	adrp	x0, 410000 <helper+0xfefc>
+  4000ec:	91042000 	add	x0, x0, #0x108
+  4000f0:	90000101 	adrp	x1, 420000 <msg+0xfef8>
+  4000f4:	91045021 	add	x1, x1, #0x114
+  4000f8:	94000003 	bl	400104 <helper>
+  4000fc:	d2800ba8 	mov	x8, #0x5d                  	// #93
+  400100:	d4000001 	svc	#0x0
+
+0000000000400104 <helper>:
+  400104:	d65f03c0 	ret

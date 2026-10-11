@@ -1,0 +1,8 @@
+
+Relocation section '.rela.dyn' at offset 0x268 contains 1 entry:
+    Offset             Info             Type               Symbol's Value  Symbol's Name + Addend
+0000000000011008  0000000000000403 R_AARCH64_RELATIVE                        2d0
+
+Relocation section '.rela.plt' at offset 0x280 contains 1 entry:
+    Offset             Info             Type               Symbol's Value  Symbol's Name + Addend
+0000000000011000  0000000300000402 R_AARCH64_JUMP_SLOT    0000000000000000 stub_call + 0

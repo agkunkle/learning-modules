@@ -1,0 +1,273 @@
+<!-- Linux ELF module body. Sections need an id and an <h2>; the runtime numbers them. -->
+<header data-meta></header>
+
+<section id="intro" data-num="none">
+  <h2>Why this module</h2>
+  <p>Every program that Linux runs starts as a file in ELF format. Compilers, linkers, the kernel
+     and the dynamic linker all read the same file. Each one reads a different part of it.</p>
+  <p>In this module you follow one very small 64-bit Arm (AArch64) program. You start with the
+     bytes in its file. You end with the memory of a running process.</p>
+  <p>We built the examples with the GNU assembler and linker. We <b>never run</b> them. We only read
+     them with <code>readelf</code> and <code>objdump</code>. You do not need Arm hardware.</p>
+  <div class="callout tip"><span class="ttl">How to read the numbers</span>
+    <p>Every address, offset and size comes from the real example files, unless a label says
+       <b>illustrative</b>. Two things are illustrative: the page size (4 KiB in the clips) and the
+       load bias <code>B</code> of the position-independent example.</p></div>
+</section>
+
+<section id="recognize">
+  <h2>Recognize an ELF file</h2>
+  <p>An ELF file starts with the <b>ELF header</b>. In ELF64 it is 64 bytes long. It always sits at
+     offset 0. It tells a reader what kind of file this is, and where to find the rest.</p>
+  <div data-pic="ehdr_bytes" class="wide"></div>
+  <p>Three fields identify the file. They answer three different questions:</p>
+  <ul class="tight">
+    <li><code>EI_CLASS</code>: how big are the structures (32-bit or 64-bit layout)?</li>
+    <li><code>EI_DATA</code>: which byte order do multi-byte fields use?</li>
+    <li><code>e_machine</code>: which CPU architecture is the code for?</li>
+  </ul>
+  <p>Here is the same header, as <code>readelf -h</code> prints it. Press <b>Next</b> to walk through it.</p>
+  <div data-code="demo_h" data-caption="readelf -h on demo.elf (built from linux_elf/fixtures)"></div>
+  <div class="callout gotcha"><span class="ttl">ELF64 does not mean AArch64</span>
+    <p>x86-64 files are ELF64 too. The CPU is named by <code>e_machine</code> (183 for AArch64).
+       AArch64 files are also not always little endian: the Arm ABI allows both byte orders.
+       This module uses little-endian examples.</p></div>
+  <div data-check="match_fields"></div>
+  <div data-check="class_64"></div>
+  <div data-check="line_machine"></div>
+</section>
+
+<section id="two-views">
+  <h2>Two views of one file</h2>
+  <p>An ELF file has two tables. Both describe ranges of the <b>same bytes</b>. They serve two
+     different readers.</p>
+  <ul class="tight">
+    <li><b>Sections</b> are the link-time view. A linker combines sections from many files.</li>
+    <li><b>Segments</b> are the execution view. The system uses them to build a process image.</li>
+  </ul>
+  <p>The gABI says it directly: a section header table is required for files used during linking,
+     and optional for files used to create a process image. For the program header table, it is the
+     other way round.</p>
+  <div class="wide" data-diagram="views"></div>
+  <p>Our example, <code>demo.elf</code>, has three segments. Their entries look like this:</p>
+  <div data-code="phdr_struct" data-caption="Elf64_Phdr, from elf(5) in man-pages 6.15"></div>
+  <p>This is what <code>readelf -l</code> prints for the file. Look at the flags and at the two sizes.</p>
+  <div data-code="demo_l" data-caption="readelf -lW on demo.elf"></div>
+  <p>This is what <code>readelf -S</code> prints. The same bytes now have names.</p>
+  <div data-code="demo_S" data-caption="readelf -SW on demo.elf"></div>
+  <div class="callout gotcha"><span class="ttl">A segment is not a section</span>
+    <p>In this small file, each segment holds one or two sections. A larger file can put many
+       sections into one segment. Do not expect one section per segment.</p></div>
+  <div data-check="which_table"></div>
+  <div data-check="match_roles"></div>
+</section>
+
+<section id="mapping">
+  <h2>Map bytes into memory</h2>
+  <p>The next clip is the core of this module. It follows <code>demo.elf</code> from the program
+     header table to three mappings in process memory. Press play, or drag the bar to look at one
+     moment.</p>
+  <div data-clip="loading"></div>
+  <p>The clip used one rule. For a byte at file offset <code>off</code> inside a <code>PT_LOAD</code>
+     segment:</p>
+  <p><code>address = load_bias + p_vaddr + (off - p_offset)</code></p>
+  <p>The range of valid offsets is <code>p_offset</code> up to, but not including,
+     <code>p_offset + p_filesz</code>. For <code>demo.elf</code> the load bias is 0, because
+     the file type is EXEC (fixed addresses).</p>
+  <p>The linker also keeps <code>p_offset</code> and <code>p_vaddr</code> equal modulo
+     <code>p_align</code>. Check LOAD 2: 0x108 and 0x410108 differ by 0x410000, a multiple of 0x10000.
+     The kernel works in whole pages, so it needs the same match modulo the page size.</p>
+  <h3>The kernel code</h3>
+  <p>Linux v6.12 maps a segment in two functions. <code>elf_map</code> maps the file bytes. It
+     rounds the start down and the size up to whole pages.</p>
+  <div data-code="k_elf_map" data-caption="Linux v6.12, fs/binfmt_elf.c (GPL-2.0), lines 351-369"></div>
+  <p><code>elf_load</code> then deals with the zero tail. It zeroes the rest of the last file page
+     and adds anonymous zero pages for the rest.</p>
+  <div data-code="k_elf_load" data-caption="Linux v6.12, fs/binfmt_elf.c (GPL-2.0), lines 395-446"></div>
+  <p>The permissions come from <code>p_flags</code>:</p>
+  <div data-code="k_make_prot" data-caption="Linux v6.12, fs/binfmt_elf.c (GPL-2.0), lines 611-624"></div>
+  <div class="callout gotcha"><span class="ttl">.bss is not a segment</span>
+    <p><code>.bss</code> is a <em>section</em> of type NOBITS. It lives in the zero-filled tail of the
+       writable segment, where <code>p_memsz</code> is larger than <code>p_filesz</code>.</p></div>
+  <div class="callout tip"><span class="ttl">Virtual memory, not RAM</span>
+    <p>A mapping is a range of virtual addresses. The kernel fills physical pages when the program
+       uses them. The clip assumed 4 KiB pages. Linux on arm64 can be built with 4, 16 or 64 KiB
+       pages: a program reads the real value from <code>AT_PAGESZ</code>.</p></div>
+  <div data-check="calc_addr"></div>
+  <div data-check="tail_zero"></div>
+  <div data-check="line_zero_pages"></div>
+</section>
+
+<section id="startup">
+  <h2>Follow program startup</h2>
+  <p>Mapping the segments is only the first stage. Three different parts of the system share the work
+     before your <code>main</code> runs:</p>
+  <ol class="steps">
+    <li>The <b>kernel</b> maps the segments, builds the stack and starts the first user instruction.</li>
+    <li>The <b>dynamic linker</b> (the "interpreter") loads libraries and applies relocations.</li>
+    <li>The <b>startup code</b> in the program and in libc sets up the C runtime and calls
+        <code>main</code>.</li>
+  </ol>
+  <div class="wide" data-diagram="startup"></div>
+  <p>The program's own entry point is <code>_start</code>. In glibc 2.41 on AArch64 it is a few
+     instructions long:</p>
+  <div data-code="g_start" data-caption="glibc 2.41, sysdeps/aarch64/start.S (LGPL-2.1+), lines 63-100"></div>
+  <div class="callout gotcha"><span class="ttl">The entry point is not main</span>
+    <p><code>e_entry</code> is the address where the program's code first runs. Startup code calls
+       <code>main</code> later. The kernel never calls <code>main</code>. User-space steps in this
+       section are those of glibc. Other C libraries differ.</p></div>
+  <div data-check="order_startup"></div>
+  <div data-check="match_who"></div>
+  <div data-check="static_entry"></div>
+</section>
+
+<section id="relocations">
+  <h2>Read symbols and AArch64 relocations</h2>
+  <p>A <b>symbol</b> is a name for an address or a value. A <b>relocation</b> is a note that says:
+     "when the final address is known, fix this place like this." Our example has a call to a function
+     in another file, so it needs both.</p>
+  <div data-code="demo_asm" data-caption="demo.s: the program (assembly, AArch64)"></div>
+  <p>After assembly, <code>demo.o</code> knows <code>_start</code> but not <code>helper</code>:</p>
+  <div data-code="demo_o_s" data-caption="readelf -sW on demo.o"></div>
+  <p>The assembler left zeros in the instructions and wrote relocations next to them:</p>
+  <div data-code="demo_o_r" data-caption="readelf -rW on demo.o"></div>
+  <div data-code="demo_o_dis" data-caption="objdump -dr on demo.o (before linking)"></div>
+  <table class="grid">
+    <tr><th>Relocation</th><th>Meaning</th><th>Where it appears here</th></tr>
+    <tr><td><code>R_AARCH64_ADR_PREL_PG_HI21</code></td>
+        <td>Page of the target, minus the page of the instruction: the <code>adrp</code> operand</td>
+        <td><code>adrp</code> for <code>.rodata</code> and <code>counter</code></td></tr>
+    <tr><td><code>R_AARCH64_ADD_ABS_LO12_NC</code></td>
+        <td>Low 12 bits of the target address: the <code>add</code> operand</td>
+        <td><code>add</code> after each <code>adrp</code></td></tr>
+    <tr><td><code>R_AARCH64_CALL26</code></td>
+        <td>Offset to the target in 4-byte words, in the <code>bl</code> operand</td>
+        <td><code>bl helper</code></td></tr>
+  </table>
+  <p>The clip shows how the linker fills in the <code>bl</code>, and what changes at load time in a
+     position-independent program.</p>
+  <div data-clip="fixup"></div>
+  <p>After linking, the same instructions hold real values:</p>
+  <div data-code="demo_dis" data-caption="objdump -d on demo.elf (after linking)"></div>
+  <p>The adrp page is always 4 KiB in the relocation formulas, even when the kernel uses larger
+     pages. The two kinds of relocation differ in <em>who</em> applies them and <em>when</em>:</p>
+  <ul class="tight">
+    <li><b>Static</b> relocations are in relocatable objects (<code>ET_REL</code>). The linker
+        applies them. A finished executable has none left.</li>
+    <li><b>Dynamic</b> relocations are in executables and shared objects. The dynamic linker applies
+        them at load time. <code>R_AARCH64_RELATIVE</code>, <code>R_AARCH64_JUMP_SLOT</code> and
+        <code>R_AARCH64_GLOB_DAT</code> are the common ones. Our example has the first two.</li>
+  </ul>
+  <div data-check="match_symbols"></div>
+  <div data-check="why_call26"></div>
+  <div data-check="why_relative"></div>
+</section>
+
+<section id="pie">
+  <h2>Understand PIE and shared libraries</h2>
+  <p>An <code>ET_EXEC</code> file asks for fixed addresses. A position-independent executable (PIE)
+     and a shared library are <code>ET_DYN</code> files. They start at address 0 in the file and are
+     loaded at a <b>load bias</b>: the difference between the runtime address and the address in the
+     file.</p>
+  <p>Our second example, <code>dyn.elf</code>, is a dynamically linked PIE. It needs one library,
+     <code>libstub.so</code>. The picture shows the bias at work. File offsets stay the same.</p>
+  <div data-pic="bias_table" class="wide"></div>
+  <p>The kernel picks the bias. For a file that has a <code>PT_INTERP</code> (a PIE program), the base
+     is <code>ELF_ET_DYN_BASE</code> plus a random offset when randomisation is on:</p>
+  <div data-code="k_load_bias" data-caption="Linux v6.12, fs/binfmt_elf.c (GPL-2.0), lines 1118-1125"></div>
+  <p>The program headers of <code>dyn.elf</code> show the interpreter and the dynamic segment:</p>
+  <div data-code="dyn_l" data-caption="readelf -lW on dyn.elf"></div>
+  <div data-code="dyn_d" data-caption="readelf -dW on dyn.elf"></div>
+  <div data-code="dyn_r" data-caption="readelf -rW on dyn.elf"></div>
+  <p>The dynamic linker applies a <code>RELATIVE</code> entry like this:</p>
+  <div data-code="g_reloc" data-caption="glibc 2.41, sysdeps/aarch64/dl-machine.h (LGPL-2.1+), lines 174-178"></div>
+  <h3>PIE or shared library?</h3>
+  <p>Both files below have <code>Type: DYN</code>. Read the other fields to tell them apart:</p>
+  <div data-code="dyn_h" data-caption="readelf -h on dyn.elf (a PIE program)"></div>
+  <div data-code="libstub_h" data-caption="readelf -h on libstub.so (a shared library)"></div>
+  <div class="callout gotcha"><span class="ttl">ET_DYN alone is not enough</span>
+    <p>Look for <code>PT_INTERP</code>, the entry point and the dynamic flags. A file with
+       <code>ET_DYN</code> and no <code>PT_INTERP</code> can be a shared library, a static PIE
+       program, or the dynamic linker itself. The kernel places the two cases differently.</p></div>
+  <div data-check="bias_offsets"></div>
+  <div data-check="dyn_only"></div>
+  <div data-check="line_interp"></div>
+</section>
+
+<section id="inspect">
+  <h2>Inspect without executing</h2>
+  <p><code>readelf</code> reads a file. It does not run it. That is why you can use it on any file,
+     for any architecture, on any machine. A good order:</p>
+  <ol class="steps">
+    <li><code>readelf -h</code>: what is this file? (class, data, machine, type, entry)</li>
+    <li><code>readelf -l</code>: how is it loaded? (segments, flags, FileSiz and MemSiz, interpreter)</li>
+    <li><code>readelf -S</code>: what are the link-time pieces? (sections)</li>
+    <li><code>readelf -d</code>: what does it need? (NEEDED libraries, flags)</li>
+    <li><code>readelf -r</code>: what must still be fixed? (relocations)</li>
+    <li><code>readelf -s</code>: which names does it have? (symbols)</li>
+  </ol>
+  <table class="grid">
+    <tr><th>Question</th><th>Command</th><th>Look for</th></tr>
+    <tr><td>Is it AArch64? Is it a PIE?</td><td><code>readelf -h</code></td>
+        <td><code>Machine</code>, <code>Type</code>, <code>Entry point</code></td></tr>
+    <tr><td>Is some memory zero-filled?</td><td><code>readelf -l</code></td>
+        <td><code>FileSiz</code> smaller than <code>MemSiz</code></td></tr>
+    <tr><td>Which libraries does it need?</td><td><code>readelf -d</code></td>
+        <td><code>NEEDED</code></td></tr>
+    <tr><td>Is a call resolved?</td><td><code>readelf -s</code> and <code>-r</code></td>
+        <td><code>UND</code> symbols, <code>R_AARCH64_*</code> entries</td></tr>
+  </table>
+  <p>Practice with the outputs you have already seen. In <code>demo.elf</code>, the program headers
+     show the zero tail (LOAD 3). In <code>dyn.elf</code>, the dynamic section shows the library
+     (<code>libstub.so</code>) and the relocation table shows the two fixups.</p>
+  <p>The symbols of the linked file show that the call now resolves: <code>helper</code> has an
+     address, and <code>_start</code> sits at the entry point.</p>
+  <div data-code="demo_s" data-caption="readelf -sW on demo.elf"></div>
+  <div data-check="match_readelf"></div>
+  <div data-check="zero_evidence"></div>
+  <div data-check="needed_libs"></div>
+</section>
+
+<section id="surprises">
+  <h2>Diagnose common surprises</h2>
+  <p>Three things often look wrong at first. None of them breaks the basic model.</p>
+  <h3>Case 1: there are no sections</h3>
+  <p>We made a copy of <code>demo.elf</code> and zeroed the section-table fields of its header
+     (<code>e_shoff</code>, <code>e_shnum</code>, <code>e_shstrndx</code>). We did not run it.</p>
+  <div data-code="nosect_S" data-caption="readelf -SW on the copy"></div>
+  <div data-code="nosect_l" data-caption="readelf -lW on the copy"></div>
+  <p>The load information is complete. Only the link-time names are gone.</p>
+  <h3>Case 2: the file is stripped</h3>
+  <p>We ran <code>strip</code> on another copy. The symbol table is gone. <code>readelf -s</code>
+     printed nothing for this static file. The program headers did not change.</p>
+  <div data-code="stripped_S" data-caption="readelf -SW on the stripped copy"></div>
+  <p>A stripped file can still run, but a debugger cannot name its functions. Do not generalise: this
+     example has no dynamic symbols. Files with dynamic linking keep the ones they need.</p>
+  <h3>Case 3: the entry point is not main</h3>
+  <p>Look again at the symbols of <code>demo.elf</code> (section 7). The entry point is
+     <code>0x4000e8</code>. The symbol at that address is <code>_start</code>. This example has no
+     <code>main</code>.</p>
+  <h3>A short checklist</h3>
+  <ol class="steps">
+    <li>Missing names (sections, symbols)? Check the load information in <code>readelf -l</code>
+        before you decide the file is broken.</li>
+    <li>Strange start? Read <code>Entry point</code> and look up that address in the symbols.</li>
+    <li>Wrong platform? Check <code>Machine</code>, then <code>Class</code> and <code>Data</code>.</li>
+    <li>Not sure what it needs? Read the dynamic section. Do not run the file to find out.</li>
+  </ol>
+  <div data-check="no_sections"></div>
+  <div data-check="entry_main"></div>
+</section>
+
+<section id="review" data-num="none">
+  <h2>Review quiz</h2>
+  <div data-check="rq_fields"></div>
+  <div data-check="rq_table"></div>
+  <div data-check="rq_calc"></div>
+  <div data-check="rq_tail"></div>
+  <div data-check="rq_entry"></div>
+  <div data-check="rq_call26"></div>
+  <div data-check="rq_dyn"></div>
+  <div data-check="rq_evidence"></div>
+  <div data-summary="all"></div>
+</section>

@@ -1,0 +1,23 @@
+
+Elf file type is DYN (Position-Independent Executable file)
+Entry point 0x2d0
+There are 6 program headers, starting at offset 64
+
+Program Headers:
+  Type           Offset   VirtAddr           PhysAddr           FileSiz  MemSiz   Flg Align
+  PHDR           0x000040 0x0000000000000040 0x0000000000000040 0x000150 0x000150 R   0x8
+  INTERP         0x000190 0x0000000000000190 0x0000000000000190 0x00001b 0x00001b R   0x1
+      [Requesting program interpreter: /lib/ld-linux-aarch64.so.1]
+  LOAD           0x000000 0x0000000000000000 0x0000000000000000 0x0002e4 0x0002e4 R E 0x10000
+  LOAD           0x000e80 0x0000000000010e80 0x0000000000010e80 0x000190 0x000190 RW  0x10000
+  DYNAMIC        0x000e80 0x0000000000010e80 0x0000000000010e80 0x000160 0x000160 RW  0x8
+  GNU_RELRO      0x000e80 0x0000000000010e80 0x0000000000010e80 0x000180 0x000180 R   0x1
+
+ Section to Segment mapping:
+  Segment Sections...
+   00     
+   01     .interp 
+   02     .interp .hash .gnu.hash .dynsym .dynstr .rela.dyn .rela.plt .plt .text 
+   03     .dynamic .got .got.plt .data 
+   04     .dynamic 
+   05     .dynamic .got 

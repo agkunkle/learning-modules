@@ -1,0 +1,10 @@
+
+build/demo.elf:     file format elf64-littleaarch64
+
+Contents of section .text:
+ 4000e8 80000090 00200491 01010090 21500491  ..... ......!P..
+ 4000f8 03000094 a80b80d2 010000d4 c0035fd6  .............._.
+Contents of section .rodata:
+ 410108 68656c6c 6f2c2065 6c660a00           hello, elf..    
+Contents of section .data:
+ 420114 07000000 00000000                    ........        

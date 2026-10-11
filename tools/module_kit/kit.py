@@ -428,6 +428,10 @@ def check(module, only=ONLY_ALL, reveal=False, theme=None, shots=True, jobs=4):
         cols, tile_w = (2, 720) if sheet.startswith(("pages", "diagram")) else (3, 640)
         print(f"sheet: {contact_sheet(frames, out_dir / f'{sheet}.jpg', cols, tile_w)}")
   print(f"page: {page} ({page.stat().st_size / 1024:.0f} KB)")
+  if report["clips"]:
+    names = ", ".join(f"{n} ({c['total']:.0f} s)" for n, c in report["clips"].items())
+    print(f"HUMAN REVIEW: a person must watch every clip before you deliver: {names}. "
+          f"Open {page} and play each one; the sheets cannot show motion or timing.")
   return 1 if errors or report["problems"] or bad_tests else 0
 
 

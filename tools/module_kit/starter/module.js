@@ -12,6 +12,12 @@ const META = {
   objectives: ["Say where cached values live", "Explain when an entry expires"],
 };
 
+// Terms the reader may not know. The first use in the prose gets a dotted underline and the
+// definition. Define key ideas in the sentence itself; use this for the rest.
+const GLOSSARY = {
+  lazily: "only when it is needed, not ahead of time",
+};
+
 const NOTES = {
   ttl_cache: [
     ["13", "The clock is injected, so tests can control time."],

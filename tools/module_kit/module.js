@@ -33,6 +33,7 @@ const CLIPS_ = typeof CLIPS !== "undefined" ? CLIPS : {};
 const DIAGRAMS_ = typeof DIAGRAMS !== "undefined" ? DIAGRAMS : {};
 const PICS_ = typeof PICS !== "undefined" ? PICS : {};
 const EXCERPTS_ = typeof EXCERPTS !== "undefined" ? EXCERPTS : {};
+const GLOSSARY_ = typeof GLOSSARY !== "undefined" ? GLOSSARY : {};
 void G;
 
 function h(tag, attrs = {}, ...kids) {
@@ -528,6 +529,15 @@ const PLAYERS = {};
 const ICON = { play: "M6 4v16l14-8z", pause: "M6 5h4v14H6zM14 5h4v14h-4z",
                replay: "M12 5V1L7 6l5 5V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z" };
 const icon = n => `<svg viewBox="0 0 24 24"><path d="${ICON[n]}"/></svg>`;
+// Space, K or Esc anywhere on the page pauses the clip that is playing (not only on its stage).
+document.addEventListener("keydown", e => {
+  if (![" ", "k", "Escape"].includes(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target.closest?.("input, textarea, select, button, a, [contenteditable], .clip-stage, [role=slider]")) return;
+  const p = Object.values(PLAYERS).find(q => q.is_playing());
+  if (!p) return;
+  p.stop();
+  e.preventDefault();
+});
 const fmt = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
 function make_clip(name, def, host) {
@@ -536,9 +546,10 @@ function make_clip(name, def, host) {
   const cap = h("div", { class: "clip-cap" }, cap_span);
   const poster = h("div", { class: "clip-poster" }, h("div", { class: "t", text: def.title }),
                    h("div", { class: "play", html: icon("play") }));
-  const stage = h("div", { class: "clip-stage fresh", tabindex: 0, role: "button",
-                           "aria-label": `Play or pause: ${def.title}` }, svg, cap, poster);
-  const b_play = h("button", { title: "Play/pause (Space)", html: icon("play") });
+  const flash = h("div", { class: "clip-flash" });  // a big play/pause icon that fades, so a click shows its effect
+  const stage = h("div", { class: "clip-stage fresh", tabindex: 0, role: "button", title: "Click to play or pause",
+                           "aria-label": `Play or pause: ${def.title}` }, svg, cap, poster, flash);
+  const b_play = h("button", { title: "Play/pause (Space)", "aria-label": "Play or pause", html: icon("play") });
   const b_cc = h("button", { title: "Captions", text: "CC" });
   const fill = h("div", { class: "fill" });
   const knob = h("div", { class: "knob" });
@@ -608,7 +619,14 @@ function make_clip(name, def, host) {
     now = Math.min(total, Math.max(0, t));
     render_at(now);
   }
-  const toggle = () => (playing ? pause() : play());
+  function show_flash(kind) {
+    flash.innerHTML = icon(kind);
+    flash.classList.remove("go");
+    void flash.offsetWidth;  // restart the animation
+    flash.classList.add("go");
+  }
+  const stop = () => { pause(); show_flash("pause"); };
+  const toggle = () => { if (playing) stop(); else { play(); show_flash("play"); } };
   stage.onclick = toggle;
   b_play.onclick = toggle;
   b_cc.onclick = () => { cc = !cc; cap.classList.toggle("off", !cc); b_cc.classList.toggle("off", !cc); };
@@ -648,7 +666,7 @@ function make_clip(name, def, host) {
     render_at(now);
   });
   PLAYERS[name] = { name, total, cues, scenes: scenes.map(s => ({ title: s.title, start: s.start, dur: s.dur })),
-                    play, pause, seek };
+                    play, pause, seek, stop, is_playing: () => playing };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -865,10 +883,6 @@ function render_header(host) {
     host.append(h("div", { class: "objectives" }, h("h3", { text: "By the end you can" }),
                   h("ul", {}, m.objectives.map(o => h("li", { html: o })))));
   }
-  host.append(h("div", { class: "callout tip" }, h("span", { class: "ttl", text: "How this module works" }),
-    h("span", { html: "Read top to bottom. The checks are for you: answer, press <b>Check</b>, " +
-      "and retry as often as you like. The sidebar shows your progress. Nothing is saved or sent " +
-      "anywhere; reloading the page starts fresh." })));
 }
 
 let sections = [];
@@ -1045,6 +1059,34 @@ $$(".callout.warn > .ttl, .callout.gotcha > .ttl").forEach(t => {
   }
 });
 
+// Glossary: the first use of each GLOSSARY term in the prose gets a dotted underline and a
+// definition (hover, tap or keyboard focus). A [data-glossary] element lists every term.
+function apply_glossary() {
+  const skip = "pre, code, figure, header, h1, h2, h3, h4, button, a, select, textarea, .check, .summary, .term";
+  const first_node = re => {
+    const walk = document.createTreeWalker($("main"), NodeFilter.SHOW_TEXT, {
+      acceptNode: n => (n.parentElement.closest(skip) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) if (re.test(n.nodeValue)) return n;
+    return null;
+  };
+  for (const [term, def] of Object.entries(GLOSSARY_)) {
+    const re = new RegExp("(?<!\\w)" + term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?!\\w)", "i");
+    const node = first_node(re);
+    if (!node) { warn(`glossary term "${term}" never appears in the prose: use it or remove it`); continue; }
+    const m = re.exec(node.nodeValue);
+    const span = h("span", { class: "term", tabindex: "0", "data-def": def, "aria-label": `${m[0]}: ${def}`, text: m[0] });
+    const after = document.createTextNode(node.nodeValue.slice(m.index + m[0].length));
+    node.nodeValue = node.nodeValue.slice(0, m.index);
+    node.after(span, after);
+  }
+  $$("[data-glossary]").forEach(host => {
+    host.classList.add("glossary");
+    const terms = Object.entries(GLOSSARY_).sort(([a], [b]) => a.localeCompare(b));
+    host.append(h("dl", {}, terms.flatMap(([t, d]) => [h("dt", { text: t }), h("dd", { text: d })])));
+  });
+}
+apply_glossary();
+
 const theme_btn = build_sidebar();
 apply_theme(theme_btn);
 theme_btn.onclick = () => { theme = { auto: "light", light: "dark", dark: "auto" }[theme]; apply_theme(theme_btn); };
@@ -1096,6 +1138,7 @@ function publish_report() {
     clips: Object.fromEntries(Object.values(PLAYERS).map(p => [p.name, { total: p.total, scenes: p.scenes, cues: p.cues }])),
     diagrams: Object.fromEntries(Object.entries(DIAGRAM_API).map(([k, d]) => [k, { flows: d.flows, nodes: d.nodes }])),
     pics: PIC_NAMES,
+    glossary: $$(".term").map(t => t.textContent),
     selftest: self_test(), problems, warnings,
   };
   document.body.append(h("pre", { id: "kit-report", hidden: true, text: JSON.stringify(report) }));

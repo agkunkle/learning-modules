@@ -39,7 +39,9 @@ Tools: `tools/module_kit/kit.py` (`new`, `excerpt`, `build`, `check`, `shot`, `p
 4. **Excerpts.** Snapshot every code excerpt with `kit.py excerpt` (never paste code by hand).
    Pick one version and use `--rev <commit>` so line numbers match it; say the commit in
    `META.source`. Excerpts are not re-checked later (by design).
-5. **Write** `module/module.js` and `module/content.html` (spec below).
+5. **Write** `module/module.js` and `module/content.html` (spec below). Define every specialized
+   word where the reader first meets it: in the sentence for key ideas, in `GLOSSARY` for the
+   rest (a reader once had to look terms up elsewhere).
 6. **Check** and look: `kit.py check <module>`, then `--reveal --theme dark`. Fix every
    `PROBLEM`, `SELFTEST FAIL`, `JS ERROR` and `WARN` first: the page measures itself and warns
    about captions that wrap, diagram labels cut by a node, picture text under 12 px and icons
@@ -47,6 +49,11 @@ Tools: `tools/module_kit/kit.py` (`new`, `excerpt`, `build`, `check`, `shot`, `p
    measure (composition, overlaps inside a drawing, wording). To confirm one fix, use
    `kit.py shot <module> "solo=clip:<name>&t=<s>"` (several fragments make one sheet) or
    `check --only <kind>`, not a full check; run the full `check` once more at the end.
+   **A person must watch every clip.** Clips carry the most risk (wonky motion, timing, overlaps
+   that appear for one frame): the sheets show still frames only. `check` ends with a
+   `HUMAN REVIEW` line that lists the clips. Tell the user which clips to play (name and
+   length), and wait for their OK or their fixes before step 7. Do not call a module with
+   clips done on the sheets alone.
 7. **Deliver** `dist/<module>.html` (tracked in git). For a change module, link it from the CR
    description. To share by link, `kit.py publish <module>` (only when the user asks: see
    Publishing).
@@ -113,6 +120,7 @@ sidebar. `data-num="none"` = unnumbered (use for `intro` and `review`). Placehol
 | `<div data-pic="name">` (`class="side"`: floated right, prose wraps; `"wide"`: wide column) | a static drawing, at most its natural size |
 | `<div class="wide" data-diagram="name">` | an interactive diagram |
 | `<div data-summary="all\|<section id>">` | score summary |
+| `<div data-glossary>` | a list of every `GLOSSARY` term (optional) |
 
 Notes default to the excerpt id only when no `data-lines` is given. Prose helpers:
 `.callout.tip|warn|gotcha` with `<span class="ttl">`, `table.grid`, `ol.steps`, `ul.tight`.
@@ -120,6 +128,10 @@ Notes default to the excerpt id only when no `data-lines` is given. Prose helper
 ### module.js globals
 
 - `META = {title, subtitle, minutes, audience, source, internal, prereqs[], objectives[]}`
+- `GLOSSARY = {term: "plain definition"}` (optional): the first use of each term in the prose
+  (not in code, headings, checks or the header) gets a dotted underline and the definition on
+  hover, tap or focus. `check` warns about a term that never appears. The match is a whole
+  word, case-insensitive.
 - `NOTES = {excerpt_id: [["line" or "a-b", html], ...]}`: file line numbers; shown as pins with
   a Prev/Next walk.
 - `CHECKS = {id: {kind, prompt, explain?, label?, ...}}`:

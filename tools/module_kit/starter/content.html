@@ -1,7 +1,8 @@
 <!-- Module body. Sections need an id and an <h2>; the runtime numbers them and builds the
      sidebar. Placeholders: data-meta, data-code (+data-lines, data-notes, data-caption),
      data-check, data-clip, data-diagram, data-pic (class="side" floats it
-     right, "wide" widens it), data-summary="all|<section id>". -->
+     right, "wide" widens it), data-summary="all|<section id>", data-glossary (lists the
+     GLOSSARY terms). -->
 <header data-meta></header>
 
 <section id="intro" data-num="none">
@@ -21,6 +22,8 @@
   <h2>Reading the code</h2>
   <div data-pic="stopwatch" class="side"></div>
   <p>Annotated excerpt: use <b>Next ▶</b> to walk through the notes.</p>
+  <p>The cache removes expired entries lazily. The first use of a GLOSSARY term gets a
+     definition: hover it, or tap it.</p>
   <div data-code="ttl_cache"></div>
   <div data-clip="expiry"></div>
   <div data-check="spot-expiry"></div>

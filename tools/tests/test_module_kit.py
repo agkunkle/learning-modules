@@ -482,3 +482,41 @@ def test_summary_has_no_stray_null_text(tmp_path):
   assert m and "right on the first try" in m.group(1)
   text = re.sub(r"<[^>]+>", " ", m.group(1))
   assert "null" not in text
+
+
+@pytest.mark.skipif(not kit.find_chrome(), reason="no Chrome/Chromium")
+def test_header_has_no_how_this_module_works_block(tmp_path):
+  mod = tmp_path / "demo"
+  kit.new_module(mod)
+  res = kit.run_chrome(kit.find_chrome(), kit.page_url(kit.build(mod)),
+                       f"--window-size={kit.PAGE_W},{kit.PAGE_H}", "--dump-dom")
+  assert "How this module works" not in res.stdout
+  assert 'class="objectives"' in res.stdout
+
+
+@pytest.mark.skipif(not kit.find_chrome(), reason="no Chrome/Chromium")
+def test_glossary_marks_first_use_only_and_warns_about_unused_terms(tmp_path):
+  mod = tmp_path / "demo"
+  kit.new_module(mod)
+  js, html_ = mod / "module" / "module.js", mod / "module" / "content.html"
+  js.write_text(js.read_text() + 'GLOSSARY["never used"] = "x";\nGLOSSARY["stage"] = "y";\n')
+  html_.write_text(html_.read_text().replace(
+      '<section id="review"',
+      '<section id="more"><h2>More</h2><p>The lazily thing again, on a stage. A stage twice.</p>'
+      '<div data-glossary></div></section><section id="review"'))
+  report, errors = kit.read_report(kit.find_chrome(), kit.build(mod))
+  assert errors == [] and report["problems"] == []
+  assert report["glossary"].count("lazily") == 1      # the first use only
+  assert report["glossary"].count("stage") == 1
+  assert 'glossary term "never used" never appears in the prose' in "\n".join(report["warnings"])
+
+
+@pytest.mark.skipif(not kit.find_chrome(), reason="no Chrome/Chromium")
+def test_clip_has_a_pause_flash_and_a_page_wide_pause_key(tmp_path):
+  mod = tmp_path / "demo"
+  kit.new_module(mod)
+  page = kit.build(mod)
+  html_ = page.read_text()
+  assert 'class: "clip-flash"' in html_ and ".clip-flash.go" in html_
+  assert 'e.key' in html_ and "p.stop()" in html_
+

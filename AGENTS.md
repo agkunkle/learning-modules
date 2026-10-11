@@ -14,6 +14,8 @@ How-to and spec: the `learning-module` skill (`.claude/skills/learning-module/SK
   `research/brief.md`. Put doc/code disagreements in the brief, not as facts in the module.
 - **Look at the output.** Run `kit.py check` (and `--reveal --theme dark`) and open the sheets
   before you call a module done.
+- **A person watches every clip.** Sheets show still frames, not motion. Before you deliver or
+  publish a module with clips, tell the user which clips to play and wait for their OK.
 - **Ask before deleting files.** Never print or commit secrets.
 - Modules may be team-internal (`META.internal = true`): real hostnames and IPs may stay.
   Nothing leaves this machine without the user's say. `kit.py publish` makes a public
@@ -56,6 +58,8 @@ tools/check_setup.sh   toolchain check (Ubuntu)
 4. write `module/content.html` + `module/module.js`
 5. `kit.py check <module>`; fix every WARN; review sheets; confirm fixes with `kit.py shot`;
    full `check` again at the end
+5b. human review: the user plays every clip (`check` prints a `HUMAN REVIEW` line); fix what
+   they find; repeat 5 for the clips you changed
 6. commit `dist/<module>.html`; link it where readers will find it (e.g. a CR description)
 7. optional, on request: `kit.py publish <module>` for a public GitHub Pages link
 

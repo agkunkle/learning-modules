@@ -1,0 +1,598 @@
+<!-- Say the shot. Claims trace to ../research/brief.md ([S#], [D], [M] = common film
+     practice), the taste sources T1-T6 in ../plan.md and the field notes [F]. The short
+     "Sources" line under each section names them. -->
+<header data-meta></header>
+
+<section id="intro" data-num="none">
+  <h2>“Make it look cool”</h2>
+  <div class="wide" data-pic="brief"></div>
+  <p>You know a good shot when you see one. The hard part is asking for it. When you work with
+     an AI, it cannot see the picture in your head. It reads your words. If you write “make it
+     more dramatic”, it must guess what you mean: closer, lower, slower or darker. It picks one,
+     and often it is not the one you meant.</p>
+  <p>Film crews solved this problem a long time ago with a shared vocabulary. A director says
+     “medium close-up, low angle, slow push-in”, and everyone on the set knows what to build. The
+     same words work with Claude. They also work with an AI video generator, and with a friend
+     who holds a phone.</p>
+  <p>This module teaches that vocabulary for directing an AI. The main example is
+     <b>code-rendered 3D</b>: Claude writes code (for example three.js inside Remotion) that
+     places a virtual camera and draws every frame. Every picture and clip on this page is made
+     that way. A small 3D renderer inside the page draws the cast of the <i>Applying Gravity</i>
+     music video: Ada, in the green hoodie, and Rosie, in the pink cardigan, who usually holds a
+     pumpkin. They stand in a classroom with a chalkboard, a globe and a bowling-ball pendulum.</p>
+  <p>Real requests appear all through the module. They come from the review notes on
+     <i>Applying Gravity</i>, written in plain words: “camera angle from the floor looking up”,
+     “quick pan to Rosie”, “zoom shot to the spinning globe”. Each one has a precise name. By the
+     end, you will know them all.</p>
+  <div class="callout tip"><span class="ttl">A shot in one line</span>
+    <p><b>Size + angle + move + timing.</b> For example: “Medium close-up of Rosie, low angle,
+       slow push-in, 3 seconds, cut on ‘gravity’.” Sections 1 to 3 teach the first three parts,
+       section 6 teaches timing, and section 8 puts them together.</p>
+  </div>
+  <p><small>The film terms here are common practice. Facts about tools come from their official
+     documentation, read in October 2026. A list of sources is at the end.</small></p>
+</section>
+
+<section id="size_angle">
+  <h2>Size and angle</h2>
+  <p>Start with the two words that describe a still frame. <b>Shot size</b> says how much of
+     the subject the frame holds. Name it by where the bottom edge of the frame cuts the body.
+     Here is Ada at seven sizes:</p>
+  <div class="wide" data-pic="shot_sizes"></div>
+  <table class="grid">
+    <tr><th>Size</th><th>The frame holds</th><th>Use it for</th></tr>
+    <tr><td>Extreme close-up (ECU)</td><td>One detail: the eyes, a hand, the stopwatch</td>
+        <td>Intensity; a detail that matters</td></tr>
+    <tr><td>Close-up (CU)</td><td>The face</td><td>Emotion; a sung line</td></tr>
+    <tr><td>Medium close-up (MCU)</td><td>Head and chest</td><td>Most talking and singing</td></tr>
+    <tr><td>Medium shot (MS)</td><td>Waist up</td><td>Gestures; two people talking</td></tr>
+    <tr><td>Cowboy (medium wide)</td><td>Mid-thigh up</td><td>Body language, face still readable</td></tr>
+    <tr><td>Full shot</td><td>Head to toe</td><td>Dance and movement</td></tr>
+    <tr><td>Wide, or establishing shot</td><td>The whole place</td><td>Where we are; the start of a scene</td></tr>
+  </table>
+  <p>The cowboy shot comes from westerns: it shows the holster at the hip. Sources differ on
+     where it cuts: StudioBinder says mid-thigh, and Wikipedia's “American shot” says the knee.
+     “Mid-thigh up” is clear to anyone.</p>
+  <p>Some shots get a name from what they show, not from their size. An <b>insert</b> is a
+     closer view of something inside the scene, such as Rosie's pumpkin. A <b>cutaway</b> shows
+     something outside the main action, such as the clock on the wall, and then the edit comes
+     back. A two-shot holds two people; a <b>single</b> holds one.</p>
+
+  <h3>Angle: where the camera sits</h3>
+  <p><b>Camera angle</b> is the camera's height and direction compared with the subject's
+     eyes. The same girl looks different from each height:</p>
+  <div class="wide" data-pic="angles"></div>
+  <ul class="tight">
+    <li><b>Eye level</b> is neutral. The viewer meets the subject as an equal.</li>
+    <li>A <b>high angle</b> looks down. The subject looks smaller.</li>
+    <li>A <b>low angle</b> looks up. The subject looks bigger and stronger.</li>
+    <li><b>Top-down</b> (bird's-eye) looks straight down. It is good for patterns,
+        choreography and objects on a table.</li>
+    <li><b>Worm's-eye</b> is from the floor, looking steeply up. This is the “camera angle from
+        the floor looking up” in the review notes.</li>
+    <li>A <b>Dutch angle</b> rolls the horizon. It suggests unease, chaos or wild energy.</li>
+  </ul>
+  <p>These meanings are conventions, not rules. A low angle often reads as power, but the
+     context decides. A low angle on a scared character in a dark corridor reads as threat
+     from above, not as their power.</p>
+  <div class="callout gotcha"><span class="ttl">Tilt is not Dutch</span>
+    <p>In film, a <b>tilt</b> is a move: the camera turns up or down. A rolled horizon is a
+       <b>Dutch angle</b> (or canted angle). “Tilt the camera” can give you either one. Write
+       “Dutch angle” when you want the roll.</p>
+  </div>
+
+  <h3>Whose eyes? OTS and POV</h3>
+  <div class="wide" data-pic="ots_pov"></div>
+  <p>An <b>over-the-shoulder</b> shot (OTS) looks past one person's shoulder at the other. It
+     keeps both people in the scene and is the standard shot for conversations. A
+     <b>point-of-view</b> shot (POV) is the character's own eyes: we see what Rosie sees, and at
+     most her own hands. Use POV when you want the viewer inside the character.</p>
+  <p><small>Sources: StudioBinder shot guide; Wikipedia (cowboy shot, Dutch angle, tilt);
+     Veo prompt guide (angle terms).</small></p>
+  <div data-check="size_match"></div>
+  <div data-check="floor_up"></div>
+  <div data-check="ots_pov"></div>
+</section>
+
+<section id="turn_or_move">
+  <h2>Moves 1: turn the camera, or move it</h2>
+  <p>There are many names for camera moves, but they fall into two families. This is the most
+     useful idea in the module.</p>
+  <ul class="tight">
+    <li><b>Turn in place.</b> The camera stays at one point and only changes where it looks:
+        <b>pan</b> (left or right), <b>tilt</b> (up or down) and <b>roll</b> (the Dutch
+        angle).</li>
+    <li><b>Move.</b> The camera itself travels: <b>truck</b> (sideways), <b>pedestal</b>
+        (straight up or down), <b>push-in</b> and <b>pull-out</b> (towards or away from the
+        subject; also called dolly in and dolly out), <b>orbit</b> or arc (around the
+        subject), <b>crane</b> or boom (up on an arm) and <b>tracking</b> (following a moving
+        subject).</li>
+  </ul>
+  <p>You can see the difference in <b>parallax</b>: when the camera moves, near things slide
+     past far things. When it only turns, everything moves together like one flat picture.
+     Parallax is what makes a moving shot feel three-dimensional. Watch the bench in the front
+     and the chalkboard at the back. The top view on the left shows where the camera is, and
+     the three.js lines below show which value changes (the highlighted line).</p>
+  <div data-clip="moves"></div>
+
+  <h3>Moves as camera values</h3>
+  <p>In code-rendered 3D, a camera is three values. The <b>position</b> is where the camera
+     is. The <b>target</b> is the point it looks at (three.js points the camera with
+     <code>lookAt</code>). The <b>field of view</b> (FOV) is how wide it sees; in three.js,
+     <code>fov</code> is the vertical angle in degrees. Every move is a recipe for these three
+     values over time:</p>
+  <table class="grid">
+    <tr><th>Move</th><th>Position</th><th>Target</th><th>FOV</th></tr>
+    <tr><td>Pan, tilt</td><td>Fixed</td><td>Turns left-right, or up-down</td><td>Fixed</td></tr>
+    <tr><td>Dutch angle (roll)</td><td>Fixed</td><td>Fixed; the camera rolls around its view</td><td>Fixed</td></tr>
+    <tr><td>Push-in, pull-out</td><td>Moves along the line of view</td><td>Fixed</td><td>Fixed</td></tr>
+    <tr><td>Truck</td><td>Slides sideways</td><td>Slides by the same amount</td><td>Fixed</td></tr>
+    <tr><td>Pedestal</td><td>Moves straight up or down</td><td>Moves by the same amount</td><td>Fixed</td></tr>
+    <tr><td>Crane</td><td>Rises or falls, often on an arc</td><td>Often fixed, so it also tilts</td><td>Fixed</td></tr>
+    <tr><td>Orbit (arc)</td><td>Moves on a circle around the target</td><td>Fixed</td><td>Fixed</td></tr>
+    <tr><td>Tracking</td><td>Follows the subject's path</td><td>Follows the subject</td><td>Fixed</td></tr>
+    <tr><td>Zoom</td><td>Fixed</td><td>Fixed</td><td>Narrows or widens</td></tr>
+  </table>
+  <div class="callout gotcha"><span class="ttl">The lookAt trap</span>
+    <p>Code often calls <code>camera.lookAt(subject)</code> on every frame, so the camera always
+       aims at the subject. Then a sideways move is not a truck: the camera slides <i>and</i>
+       turns, so the subject stays in the centre and the room swings behind it. That can look
+       good, but it is a truck plus a pan. For a pure truck, ask Claude to move the target by
+       the same amount as the position.</p>
+  </div>
+  <p>A note on words. Crews use “dolly” for the wheeled cart, and also for any move on it.
+     Some say “track left” where others say “truck left”. The AI video guides agree on one set,
+     and so does this module: <b>push in</b> and <b>pull out</b> for towards and away,
+     <b>truck</b> left or right for sideways, and <b>tracking</b> for following a subject.</p>
+  <p>Three more moves. <b>Handheld</b> is a small, shaky motion with a documentary feel. In 3D
+     it is <b>camera shake</b>: noise added to the position and rotation. Remotion's
+     <code>noise2D</code> gives the same noise for the same frame, so the shake stays
+     repeatable, and Unreal has ready-made shake patterns. A <b>whip pan</b> is a pan so fast
+     that the picture blurs. It is a strong transition: whip out of one shot and into the next.
+     This is the “quick pan to Rosie” from the review notes. Last, a <b>locked-off</b> (static)
+     shot does not move at all. That is a choice too, and often the right one.</p>
+  <p><small>Sources: Wikipedia (tracking shot); StudioBinder camera movements; three.js
+     <code>Object3D.lookAt</code>; Veo, Kling and MiniMax guides (move terms); Unreal camera
+     shakes; Remotion <code>noise2D</code>.</small></p>
+  <div data-check="pan_truck"></div>
+  <div data-check="lookat_trap"></div>
+  <div data-check="move_values"></div>
+</section>
+
+<section id="zoom">
+  <h2>Moves 2: a zoom is not a push-in</h2>
+  <p>One of the requests in the review notes was “zoom shot to the spinning globe”. That
+     sounds clear, but it is the most common mix-up in this module. On a real camera, a
+     <b>zoom</b> changes the lens's focal length. In 3D, it narrows or widens the FOV. Either
+     way, the camera does not move. A <b>push-in</b> moves the camera closer. Both make the
+     subject bigger, but they do not look the same.</p>
+  <div data-clip="push_vs_zoom"></div>
+  <p>A zoom magnifies everything by the same amount, so it is really a crop of the first
+     frame. The perspective does not change. A push-in changes the perspective: the subject
+     grows faster than the background, and near things slide out of the frame. That is why a
+     push-in feels like going towards something, and a zoom feels like looking harder at it.</p>
+  <p>Usually, “zoom to the globe” means “get closer to the globe”, which is a push-in. When the
+     difference matters, Claude should ask: <b>zoom or push in?</b> Better still, say it in
+     your note.</p>
+  <h3>Three famous variations</h3>
+  <ul class="tight">
+    <li><b>Dolly zoom</b> (the “Vertigo effect”): the camera moves back while the lens zooms in,
+        or the reverse. The subject stays the same size, and the room seems to stretch or
+        shrink behind it. It is a strong effect for a moment of shock or realisation. Use it
+        once.</li>
+    <li><b>Crash zoom</b> (snap zoom): a very fast zoom. It is punchy and often comic. “Close
+        and then quick zoom out” in the review notes is a crash zoom out, or a fast pull-out if
+        the camera should move.</li>
+    <li><b>Reveal</b>: a move that starts close or blocked and ends on something new. A
+        pull-out from Rosie's pumpkin to the whole class is a reveal.</li>
+  </ul>
+  <div class="callout tip"><span class="ttl">“Zoom” in AI prompts</span>
+    <p>Veo's guide defines a zoom correctly: the focal length changes and the camera does not
+       move. Even so, video generators often turn “zoom in” into a push-in. MiniMax has separate
+       commands, <code>[Zoom in]</code> and <code>[Push in]</code>. When the difference matters,
+       describe it: “the camera moves closer to her”.</p>
+  </div>
+  <p><small>Sources: three.js <code>PerspectiveCamera</code> (zoom and fov); Wikipedia
+     (zooming, perspective distortion, dolly zoom); Veo and MiniMax guides; field notes.</small></p>
+  <div data-check="zoom_which"></div>
+  <div data-check="dolly_zoom"></div>
+</section>
+
+<section id="lens">
+  <h2>Lens, focus and depth</h2>
+  <p>Photographers talk about lenses in millimetres; 3D code talks about the field of view in
+     degrees. They describe the same thing. The <b>focal length</b> of a lens and the size of
+     the camera's sensor together set the field of view. A long lens (85 mm) sees a narrow
+     slice of the world; this is a <b>telephoto</b>. A short lens (24 mm) sees a wide view.</p>
+  <table class="grid">
+    <tr><th>Lens</th><th>Horizontal FOV, full-frame camera (36 mm wide)</th>
+        <th>three.js <code>fov</code> at 16:9 (vertical)</th></tr>
+    <tr><td>24 mm (wide)</td><td>74°</td><td>45°</td></tr>
+    <tr><td>35 mm</td><td>54°</td><td>31°</td></tr>
+    <tr><td>50 mm (“normal”)</td><td>40°</td><td>22°</td></tr>
+    <tr><td>85 mm (portrait, telephoto)</td><td>24°</td><td>13°</td></tr>
+  </table>
+  <p>The three.js numbers come from its own formula, with its default 35 mm film gauge. The
+     default <code>fov</code> of 50 at 16:9 is a wide lens, about 21 mm. three.js can also set
+     the FOV from millimetres: <code>camera.setFocalLength(85)</code>. Blender takes a focal
+     length or an FOV, and Unreal's Cine Camera takes a sensor size and a focal length. So
+     “an 85 mm look” is a fair request in every tool.</p>
+
+  <h3>“Compression” comes from distance</h3>
+  <p>People say a telephoto lens “compresses” space: the background looks big and close behind
+     the subject. The American Society of Cinematographers (ASC) explains what really happens.
+     The lens does not cause it. The <b>distance</b> does. From far away, Ada and the board are
+     at more similar distances from the camera, so they look more similar in size. To keep Ada
+     the same size from far away, you need a narrow FOV, and that is why people blame the
+     lens.</p>
+  <div class="wide" data-pic="compression"></div>
+  <p>So ask for “camera far back, long lens” (or “narrow FOV”) when you want the background
+     big and flat behind the subject. Ask for “close, wide lens” when you want depth and space.
+     A zoom from the same spot does not do either: it only crops. Veo's guide still says a
+     telephoto lens “compresses distance”. As a prompt word, that is fine.</p>
+
+  <h3>Focus and depth of field</h3>
+  <p><b>Depth of field</b> is the range of distances that look sharp. With a <b>shallow</b>
+     depth of field, the subject is sharp and the background melts into soft blur (bokeh): the
+     classic “cinematic” portrait. With <b>deep focus</b>, everything is sharp. On a real
+     camera, a lower f-stop gives a shallower depth of field. A <b>rack focus</b> (or pull
+     focus) moves the focus from one subject to another during the shot, for example from
+     Rosie's pumpkin to Ada behind her.</p>
+  <p>Here is a catch for code-rendered 3D. A three.js camera has no depth of field: everything
+     is sharp. Blur is a post effect (<code>BokehPass</code>, with a focus distance and an
+     aperture). Blender and Unreal cameras do have focus distance and f-stop settings. So in
+     3D a rack focus is possible, but it costs work and render time. Ask for it on purpose.</p>
+
+  <h3>Shorts: 9:16 is not just a taller frame</h3>
+  <p>YouTube's player is 16:9. Shorts are vertical or square and can be up to 3 minutes long.
+     When Claude makes a Short from a 16:9 three.js scene, watch one detail: three.js keeps the
+     <i>vertical</i> angle. With the same <code>fov</code>, a tall 9:16 frame sees only a thin
+     slice of the scene.</p>
+  <div class="wide" data-pic="aspect"></div>
+  <p>Re-frame each shot for the tall format, or ask Claude to keep the same horizontal view.
+     YouTube's Shorts editor also marks a “non-safe” area near the edges, where its buttons
+     sit. Keep faces and text away from the edges. YouTube gives no exact numbers for this
+     area.</p>
+  <p><small>Sources: three.js <code>PerspectiveCamera</code>; Blender camera manual; Unreal
+     Cine Camera; ASC “Understanding Lens Distortion”; No Film School; Wikipedia (perspective
+     distortion, depth of field); three.js <code>BokehPass</code>; YouTube Help (aspect ratios,
+     Shorts).</small></p>
+  <div data-check="compress"></div>
+  <div data-check="fov_value"></div>
+  <div data-check="shorts"></div>
+</section>
+
+<section id="composition">
+  <h2>Composition and continuity</h2>
+  <p><b>Composition</b> is where things sit in the frame. Three habits cover most frames:</p>
+  <ul class="tight">
+    <li><b>Rule of thirds.</b> Imagine two lines across and two lines down. Put the subject
+        on a line or where two lines cross, not in the dead centre.</li>
+    <li><b>Headroom.</b> Leave a little space above the head, and put the eyes near the top
+        third line. Too much space makes the subject sink; too little cuts them off.</li>
+    <li><b>Lead room</b> (or look room). Leave space in the direction the subject looks or
+        moves. Without it, the subject seems to press against the edge.</li>
+  </ul>
+  <div class="wide" data-pic="thirds"></div>
+  <p>Centre framing is a valid choice too. A perfectly centred, symmetrical frame feels formal,
+     calm or funny, and some directors build a whole style on it. Choose it on purpose; do not
+     drift into it.</p>
+
+  <h3>The 180-degree rule</h3>
+  <p>When two people face each other, imagine a line through them. Keep every camera on one
+     side of that line. Then Ada stays on the left and looks right, and Rosie stays on the right
+     and looks left, in every shot. If one camera crosses the line, the two seem to swap places,
+     and the viewer loses track of the scene for a moment.</p>
+  <div class="wide" data-pic="line_180"></div>
+  <p>This is a guideline, not a law. You can cross the line on purpose, for example with a
+     camera that moves across it during a shot, so the viewer sees it happen. In code-rendered
+     3D, it is easy to break the rule by accident, because a virtual camera can go anywhere.
+     Tell Claude: “keep the 180 line between Ada and Rosie”.</p>
+
+  <h3>The 30-degree rule and jump cuts</h3>
+  <p>When you cut between two shots of the same subject, change the angle by at least about 30
+     degrees, or change the shot size clearly. If you do not, the cut looks like a jump cut:
+     the subject twitches in place. Vlogs use jump cuts on purpose, to remove pauses. Again,
+     this is a guideline.</p>
+
+  <h3>Coverage</h3>
+  <p><b>Coverage</b> is the set of shots that lets an editor choose. The classic plan starts
+     wide and moves closer: first a <b>master shot</b> of the whole action, then mediums,
+     close-ups and inserts. With a master, the editor can always cut back to the whole
+     picture. For a lip-synced music video, one practical guide suggests a full-song pass for
+     each setup (wide, medium, close), so every line exists in three sizes. It also says:
+     frame a little wider than you need, because you can crop in later but never out. That
+     guide is a vendor blog, so take it as practice, not research.</p>
+  <p>In code-rendered 3D, coverage is cheap: the same animation can render from several
+     cameras. Ask Claude for alternatives. With an AI generator, each clip is one shot, so
+     coverage means generating several clips.</p>
+
+  <h3>Cut, or move?</h3>
+  <p>The review notes said “cut to the blackboard” in one place and “zoom to the globe” in
+     another. A <b>hard cut</b> switches to the next shot instantly. A camera move travels there
+     continuously. In 3D, a hard cut means switching to another camera, or jumping the position
+     and target in one frame. When a note could mean either, say which one you want.</p>
+  <p><small>Sources: Wikipedia (rule of thirds, headroom, lead room, 180-degree rule,
+     30-degree rule, jump cut); StudioBinder coverage guide; Pixo music-video playbook; field
+     notes.</small></p>
+  <div data-check="line"></div>
+  <div data-check="coverage"></div>
+</section>
+
+<section id="time">
+  <h2>Time: holds, easing and slow motion</h2>
+  <p>A great frame can still feel wrong if its timing is wrong. Timing has its own words.</p>
+  <p>A <b>hold</b> is the time a shot stays on screen. The <b>tail</b> (or button) is a final
+     hold at the end of a scene or a song. “Hold the last scene for a couple more seconds”
+     from the review notes is a request for a longer tail. Say holds in seconds, or in the
+     music's terms: “hold for the whole phrase”, “cut on ‘gravity’”.</p>
+
+  <h3>Easing: how a move starts and stops</h3>
+  <p>In 3D animation, a move is a set of keyframes: you set the camera position at frame 0 and
+     at frame 90, and the software fills in the frames between. How it fills them is the
+     <b>easing</b>. With <b>linear</b> easing, the camera goes from standing still to full
+     speed at once, and stops dead at the end. Blender's manual says it well: linear “prevents
+     abrupt changes in value but not in speed”. <b>Ease in</b> starts slowly and <b>ease
+     out</b> ends slowly. A <b>spring</b> is easing that imitates physics: in Remotion, its
+     default settings overshoot a little and settle.</p>
+  <div data-clip="easing"></div>
+  <p>The review notes said the camera felt “jittery” and “bouncy”. Un-eased motion is a common
+     cause. Ask for “ease in and out on every camera move”, or “a spring with no overshoot” if
+     you like the quick start.</p>
+  <div class="callout gotcha"><span class="ttl">Every value comes from the frame number</span>
+    <p>Remotion renders a video in several browser tabs that share no state. Every animated
+       value must come from <code>useCurrentFrame()</code>. A CSS animation or a timer looks
+       fine in the preview, then flickers in the final render. If a render flickers but the
+       preview is fine, this is the first thing to check. (The clips on this page follow the
+       same rule: every frame is a function of time alone.)</p>
+  </div>
+
+  <h3>Slow motion and speed ramps</h3>
+  <p>A real camera makes slow motion by recording at a higher frame rate (60 or 120 frames per
+     second) and playing the frames back at 24 or 30. In code-rendered 3D, you render time instead of recording
+     it. Slow motion means slowing the scene's clock; this is a <b>time remap</b>. Blender
+     calls it Time Stretching. A <b>speed ramp</b> changes the speed during the shot, for
+     example from normal to a quarter speed and back.</p>
+  <p>Under a song, there is a catch. The song keeps real time: the music and the lip sync
+     cannot slow down. So only the scene slows, and the cut points stay on the song's timeline.
+     The slow part borrows time, so the shot ramps back to normal speed to land its cut on the
+     beat. You will see this at the end of the clip in the next section. Live shoots solve the
+     same problem another way: they play the track faster on set while the singer mimes, and
+     slow the footage later. One practitioner describes playback at 250% for 60 fps footage
+     slowed to 24, and says singing at that speed is “very very difficult”.</p>
+  <p>One more word: <b>shutter angle</b>. A film camera's shutter is open for part of each
+     frame. A 180-degree shutter is open for half of each frame, which is the film norm. At 30
+     fps that is 1/60 of a second. It sets how much motion blur a moving thing gets. Remotion's
+     <code>CameraMotionBlur</code> uses 180 degrees by default. A narrow angle gives crisp,
+     choppy motion, a look that war and action films sometimes use.</p>
+  <p><small>Sources: Blender manual (interpolation, time stretching, motion blur); Remotion
+     docs (fundamentals, interpolate, Easing, spring, CameraMotionBlur, flickering); Wikipedia
+     (shutter angle); DV Info Net forum (live lip-sync slow motion); field notes.</small></p>
+  <div data-check="slowmo"></div>
+  <div data-check="jitter"></div>
+  <div data-check="flicker"></div>
+</section>
+
+<section id="taste">
+  <h2>Taste: how long a shot lasts, and what looks good</h2>
+  <p>You feel it when a video is good. Much of that feeling has names, and some of it has
+     numbers. This section collects both. The numbers come from measurements. The habits are
+     craft advice that editors share widely; they are taste, so treat them as starting points.</p>
+
+  <h3>How long should a shot last?</h3>
+  <p>Researchers measured the shots in 160 Hollywood films from 1935 to 2010. The
+     <b>average shot length</b> was about 10 seconds in the 1930s and 1940s, and fell below 4
+     seconds after 2000. In recent films, shorter shots also carry more motion. Interestingly,
+     the share of shots with a moving camera went <i>down</i> (from 16% in 1959 to 6% in 1999):
+     the extra motion comes from what happens in the frame, not from the camera.</p>
+  <p>Shot length also follows shot size. A wide shot needs time, because the eye scans a lot
+     of detail. A close-up is read at once, so it can be cut shorter. An editing guide said so
+     in 1944, and a 2017 study of one pop music video found the same pattern: the closer the
+     framing, the shorter the shot. Its typical shot lasted about 2 seconds.</p>
+  <table class="grid">
+    <tr><th>Style</th><th>Starting shot length</th><th>Basis</th></tr>
+    <tr><td>Talking-head tutorial</td><td>5-15 s on the speaker, with B-roll and cutaways
+        between</td><td>Rule of thumb</td></tr>
+    <tr><td>Vlog</td><td>2-6 s; jump cuts remove the pauses</td><td>Rule of thumb</td></tr>
+    <tr><td>Modern film, cinematic short</td><td>About 3-4 s on average</td>
+        <td>Measured: Hollywood after 2000</td></tr>
+    <tr><td>Calm, classic, thoughtful</td><td>About 10 s, and more for wide shots</td>
+        <td>Measured: Hollywood in the 1930s and 1940s</td></tr>
+    <tr><td>Music video</td><td>About 2 s; longer in verses, faster in the chorus</td>
+        <td>Measured in one pop video; practice guide</td></tr>
+    <tr><td>Action peak, montage</td><td>1-2 s</td><td>Measured: the fastest film in the study
+        averaged 2.2 s</td></tr>
+  </table>
+  <p>Now compare three edits of the same 13 seconds of the <i>Applying Gravity</i> chorus. The
+     timeline under the picture shows the lyric phrases, the beats and one coloured bar per
+     shot. The yellow line is the playhead. The clip is silent, so follow the beat ticks.</p>
+  <div data-clip="rhythm"></div>
+
+  <h3>What we tend to find engaging</h3>
+  <p>These habits explain much of what “looks good”. Each one is craft advice, not a law:</p>
+  <ul class="tight">
+    <li><b>Vary the size.</b> Make each shot a different size from the one before: wide,
+        medium, close, insert. Two similar shots in a row look like a mistake.</li>
+    <li><b>Use contrast.</b> Long against short, still against moving, wide against close. A
+        fast run hits harder after a long hold.</li>
+    <li><b>One idea per shot.</b> Each shot shows one thing. When the viewer has it, cut.</li>
+    <li><b>Give the eye one place to land.</b> Put the subject of the next shot near where the
+        eye already is. The editor Walter Murch calls this <b>eye trace</b>.</li>
+    <li><b>Move with a reason.</b> Follow an action, reveal something or build a feeling, like
+        a slow push-in as Rosie realises something. A move with no reason makes a video busy.</li>
+    <li><b>Hold on the peak.</b> Give the emotional high point time. Do not cut away from the
+        best moment.</li>
+    <li><b>Cut on action.</b> A cut in the middle of a movement hides itself. The viewer
+        follows the motion and does not notice the cut.</li>
+  </ul>
+  <p>Walter Murch, an Oscar-winning editor, ranks what makes a good cut: <b>emotion</b> first,
+     then story, then rhythm, then eye trace, then the two continuity rules (the flat screen and
+     the 3D space). He gives emotion more than half of the weight. So a cut that breaks the
+     180-degree rule but carries the feeling beats a perfect cut that feels like nothing.</p>
+  <p>YouTube adds its own pressure. In YouTube Studio, the audience retention report shows the
+     share of viewers still watching after 30 seconds, and the “dips” where people leave or
+     skip. YouTube's advice: if your best moments come late, move them earlier. Your strongest
+     shot can open the video.</p>
+  <div class="callout tip"><span class="ttl">Turn a feeling into a note</span>
+    <p>“It feels static” usually means the holds are too long or the sizes repeat: “cut at the
+       phrase, then an MCU, then an insert”. “It feels busy” usually means too many moves or too
+       many cuts: “lock off the camera in the verse; hold each shot for the whole line”.</p>
+  </div>
+  <p><small>Sources: Cutting et al., <i>i-Perception</i> 2011; <i>Home Movies</i> (1944);
+     Pérez Rufí and Rodríguez López, <i>Doxa Comunicación</i> 2017; Pixo music-video playbook;
+     StudioBinder on Murch's “Rule of Six”; YouTube Help (audience retention). The habits list
+     is craft advice.</small></p>
+  <div data-check="chorus"></div>
+  <div data-check="hold_len"></div>
+  <div data-check="style_match"></div>
+</section>
+
+<section id="brief">
+  <h2>Writing the brief</h2>
+  <p>Now put it together. A <b>shot list</b> is a table with one row per shot. Each row says
+     the size and angle, the move, the subject and action, the length, how the shot starts
+     and ends, and why it is there. The “why” matters: it lets Claude make a good choice when
+     your row leaves something open. Here is a shot list for the start of the chorus:</p>
+  <table class="grid">
+    <tr><th>#</th><th>When</th><th>Size, angle</th><th>Move</th><th>Subject</th><th>In / out</th><th>Why</th></tr>
+    <tr><td>1</td><td>“We're applying gravity!”</td><td>Wide, eye level</td><td>Slow push-in, eased</td>
+        <td>Both girls, Ada's arms up</td><td>Cut in on the downbeat</td><td>Big opening; shows the room</td></tr>
+    <tr><td>2</td><td>“Nine-point-eight…”</td><td>MCU Ada, slightly low</td><td>Locked off</td>
+        <td>Ada sings to camera</td><td>Hard cut on the phrase</td><td>Her line; we read her face</td></tr>
+    <tr><td>3</td><td>“Faster every second…”</td><td>CU Rosie</td><td>Locked off</td>
+        <td>Rosie lifts the pumpkin</td><td>Hard cut on the phrase</td><td>Her line</td></tr>
+    <tr><td>4</td><td>“…as it falls”</td><td>Insert, low</td><td>None; slow motion ×0.25, ramp back</td>
+        <td>The pumpkin drops</td><td>Cut on the beat</td><td>The physics moment</td></tr>
+  </table>
+  <p>The same wish travels a different road in each pipeline. One of them animates still
+     images with the Ken Burns effect. Step through the diagram to see
+     what a “slow push-in on Rosie” becomes in each one.</p>
+  <div class="wide" data-diagram="pipelines"></div>
+
+  <h3>For code-rendered 3D</h3>
+  <ul class="tight">
+    <li>Name the move with the terms from this module, or give numbers: “from 6 m to 2 m”,
+        “fov 30”, “an 85 mm look”.</li>
+    <li>Say the easing (“ease in and out”) and the length, in seconds, beats or lyrics.</li>
+    <li>Say “hard cut” or “move” for every change of shot.</li>
+    <li>Name the rules you want kept: “keep the 180 line”, “eyes on the top third”.</li>
+    <li>Ask for still frames of each shot before a long render. Coverage is cheap, so ask for
+        alternatives too.</li>
+  </ul>
+
+  <h3>For AI video generators</h3>
+  <p>The official prompting guides from Google (Veo), Runway and Kling agree on a short list,
+     and OpenAI's archived Sora guide said the same:</p>
+  <ul class="tight">
+    <li><b>Be plain and specific.</b> Shot size, angle and move. Sora's guide called
+        “cinematic look” a weak cue and “wide shot, low angle” a strong one. Kling calls “make
+        the camera cool” too unclear.</li>
+    <li><b>One camera move per shot.</b> Sora: “one clear camera move and one clear subject
+        action”. Kling warns that contradictory cues, such as a static camera with a fast
+        push-in, confuse the model.</li>
+    <li><b>Say what you want, not what you do not want.</b> Write “static camera” rather than
+        “no shake”.</li>
+    <li><b>Start simple</b> and add one element at a time. Shorter clips follow instructions
+        better, and results vary from run to run, so make several.</li>
+    <li><b>One generation is one shot.</b> A cut inside one prompt rarely works. Cut in the
+        edit.</li>
+  </ul>
+  <p>Vendor details: Runway suggests “The camera [motion] as the subject [action]” for an
+     image-to-video prompt. Its guide also warns that even “the locked-off camera remains
+     perfectly still” may not give a perfectly still shot. MiniMax uses bracket commands such
+     as <code>[Push in]</code> and <code>[Truck left]</code>. Veo's guide says some “advanced”
+     angles and lenses are not officially supported. OpenAI removed Sora 2 and its video API on
+     24 September 2026, so treat its guide as past advice.</p>
+
+  <h3>Review notes that work</h3>
+  <p>The review notes on <i>Applying Gravity</i> were good notes: each one points at a real
+     problem. Here they are with the words that make them exact:</p>
+  <table class="grid">
+    <tr><th>What was said</th><th>What to say</th></tr>
+    <tr><td>“zoom shot to the spinning globe, then zoom back out”</td>
+        <td>“Push in to an insert of the globe, then pull out” (or “zoom”, if you mean the lens)</td></tr>
+    <tr><td>“cut away to the far view way too soon”</td>
+        <td>“Hold on the blackboard for the whole phrase; cut on the phrase”</td></tr>
+    <tr><td>“big camera cuts on each word, 3/4 angle closer view”</td>
+        <td>“Cut on each word: MCUs from a three-quarter angle”</td></tr>
+    <tr><td>“camera angle from the floor looking up”</td><td>“Worm's-eye shot”</td></tr>
+    <tr><td>“quick pan to Rosie”</td><td>“Whip pan to Rosie”</td></tr>
+    <tr><td>“slow motion and more zoomed in so it is more dramatic”</td>
+        <td>“CU, slow motion ×0.25 with a speed ramp back before the next cut”</td></tr>
+    <tr><td>“sweeping around it”</td><td>“Orbit around it” (add “with a push-in” if it should also get closer)</td></tr>
+    <tr><td>“feels static, boring camera-wise”</td>
+        <td>“The wide holds too long: cut on the phrases and vary the sizes”</td></tr>
+    <tr><td>“jittery, bouncy”</td><td>“Ease in and out on every move”</td></tr>
+  </table>
+  <p><small>Sources: Veo prompt guides (Google Cloud, Google AI); Runway prompting guide
+     (Gen-4.5); Kling camera-control and prompt guides; MiniMax API; OpenAI Sora 2 prompting
+     guide (archived) and API deprecations; field notes.</small></p>
+  <div data-check="prompt"></div>
+  <div data-check="rewrite"></div>
+  <div data-check="pipeline_match"></div>
+</section>
+
+<section id="review" data-num="none">
+  <h2>Review quiz</h2>
+  <p>Eight questions from the whole module. Ada has her stopwatch ready.</p>
+  <div data-check="r_notes"></div>
+  <div data-check="r_tilt"></div>
+  <div data-check="r_parallax"></div>
+  <div data-check="r_default_fov"></div>
+  <div data-check="r_negative"></div>
+  <div data-check="r_shutter"></div>
+  <div data-check="r_cut_move"></div>
+  <div data-check="r_murch"></div>
+  <div data-summary="all"></div>
+  <h3>Words in this module</h3>
+  <div data-glossary></div>
+  <h3>Sources</h3>
+  <p>All accessed on 12 October 2026.</p>
+  <ul class="tight">
+    <li>three.js: <a href="https://github.com/mrdoob/three.js/blob/dev/src/cameras/PerspectiveCamera.js">PerspectiveCamera</a>;
+        <a href="https://github.com/mrdoob/three.js/blob/dev/examples/jsm/postprocessing/BokehPass.js">BokehPass</a>.</li>
+    <li>Blender Manual: <a href="https://docs.blender.org/manual/en/latest/render/cameras.html">Cameras</a>;
+        <a href="https://docs.blender.org/manual/en/latest/editors/graph_editor/fcurves/properties.html">F-Curve interpolation</a>;
+        <a href="https://docs.blender.org/manual/en/latest/render/output/properties/frame_range.html">Time Stretching</a>.</li>
+    <li>Unreal Engine: <a href="https://dev.epicgames.com/documentation/en-us/unreal-engine/cinematic-cameras-in-unreal-engine">Cinematic Cameras</a>;
+        <a href="https://dev.epicgames.com/documentation/en-us/unreal-engine/camera-shakes-in-unreal-engine">Camera Shakes</a>.</li>
+    <li>Remotion: <a href="https://www.remotion.dev/docs/the-fundamentals">The fundamentals</a>;
+        <a href="https://www.remotion.dev/docs/flickering">Flickering</a>;
+        <a href="https://www.remotion.dev/docs/interpolate">interpolate()</a>;
+        <a href="https://www.remotion.dev/docs/spring">spring()</a>;
+        <a href="https://www.remotion.dev/docs/motion-blur/camera-motion-blur">CameraMotionBlur</a>;
+        <a href="https://www.remotion.dev/docs/noise/noise-2d">noise2D</a>.</li>
+    <li>Google: <a href="https://docs.cloud.google.com/vertex-ai/generative-ai/docs/video/video-gen-prompt-guide">Veo prompt guide</a>;
+        <a href="https://ai.google.dev/gemini-api/docs/veo">Generate videos with Veo 3.1</a>.</li>
+    <li>Runway: <a href="https://academy.runwayml.com/prompt-guide">Prompting Guide</a>.
+        Kling: <a href="https://kling.ai/blog/kling-ai-camera-control-video-guide">Camera control guide</a>;
+        <a href="https://kling.ai/blog/kling-ai-prompt-guide">Prompt guide</a>.
+        Luma: <a href="https://docs.lumalabs.ai/docs/video-generation">Video generation</a>.
+        MiniMax: <a href="https://platform.minimax.io/docs/api-reference/video-generation-t2v">Text-to-video API</a>.</li>
+    <li>OpenAI: <a href="https://developers.openai.com/cookbook/examples/sora/sora2_prompting_guide">Sora 2 prompting guide</a> (archived);
+        <a href="https://developers.openai.com/api/docs/deprecations">API deprecations</a>.</li>
+    <li>J. Holben, <a href="https://theasc.com/article/understanding-lens-distortion/">Understanding Lens Distortion</a>, ASC;
+        V. Renée, <a href="https://nofilmschool.com/2018/05/lens-compression-myth-whats-really-happening-your-images-when-you-switch-focal-length">The Lens Compression Myth</a>, No Film School.</li>
+    <li>StudioBinder: <a href="https://www.studiobinder.com/blog/types-of-camera-shots-sizes-in-film/">Camera shots</a>;
+        <a href="https://www.studiobinder.com/blog/different-types-of-camera-movements-in-film/">Camera movements</a>;
+        <a href="https://www.studiobinder.com/blog/film-coverage/">Film coverage</a>;
+        <a href="https://www.studiobinder.com/blog/walter-murch-rule-of-six/">Murch's Rule of Six</a>.</li>
+    <li>Wikipedia: <a href="https://en.wikipedia.org/wiki/Shot_(filmmaking)">Shot</a>;
+        <a href="https://en.wikipedia.org/wiki/Cowboy_shot">Cowboy shot</a>;
+        <a href="https://en.wikipedia.org/wiki/Tracking_shot">Tracking shot</a>;
+        <a href="https://en.wikipedia.org/wiki/Dutch_angle">Dutch angle</a>;
+        <a href="https://en.wikipedia.org/wiki/Dolly_zoom">Dolly zoom</a>;
+        <a href="https://en.wikipedia.org/wiki/Perspective_distortion">Perspective distortion</a>;
+        <a href="https://en.wikipedia.org/wiki/180-degree_rule">180-degree rule</a>;
+        <a href="https://en.wikipedia.org/wiki/30-degree_rule">30-degree rule</a>;
+        <a href="https://en.wikipedia.org/wiki/Rotary_disc_shutter">Shutter angle</a>.</li>
+    <li>J. Cutting et al., <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3485803/">Quicker, faster, darker: changes in Hollywood film over 75 years</a>, <i>i-Perception</i> (2011).</li>
+    <li><a href="https://lantern.mediahist.org/catalog/homemovies194411verh_0067"><i>Home Movies</i></a> (1944), via the Media History Digital Library.</li>
+    <li>J. P. Pérez Rufí and J. Rodríguez López, <a href="https://doaj.org/article/81ae4b0f49464cc59acb7565f5d65055">Video clip editing and duration of the shot</a>, <i>Doxa Comunicación</i> 25 (2017).</li>
+    <li>Pixo, <a href="https://pixo.video/blog/how-to-shoot-a-music-video">How to Shoot a Music Video</a> (vendor blog);
+        DV Info Net forum, <a href="https://dvinfo.net/forum/archive/index.php/t-102723.html">Slow motion / music video</a> (2007).</li>
+    <li>YouTube Help: <a href="https://support.google.com/youtube/answer/9314415">Audience retention key moments</a>;
+        <a href="https://support.google.com/youtube/answer/6375112">Resolution and aspect ratios</a>;
+        <a href="https://support.google.com/youtube/answer/15424877">Three-minute Shorts</a>.</li>
+  </ul>
+</section>

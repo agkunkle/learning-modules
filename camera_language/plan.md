@@ -43,7 +43,7 @@ side: a **top-down map** (camera icon, its view cone, the target) and the **came
 - Colours: kit rules. In clips, identity hues blue (camera), orange (singer), aqua (props); yellow
   only for "look here now". In pictures: ink/paper/muted, no yellow or blue.
 
-## Outline (about 50 min, 8 sections)
+## Outline (about 50 min, 8 sections; META says 75 min after the 1.5x padding rule)
 
 | # | Section | Key idea | Rich elements | Checks (kind) |
 |---|---------|----------|---------------|---------------|

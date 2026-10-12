@@ -11,7 +11,7 @@ Status: outline (present to the user for approval before building)
 - Repo, branch, commit (and PR / diff range for a change module)
 - Research notes: research/brief.md (file:line references)
 
-## Outline (30-45 min, 6-8 sections)
+## Outline (45-75 min, 6-8 sections)
 | # | Section | Key idea | Rich element (code / diagram / clip) | Checks (kind) |
 |---|---------|----------|--------------------------------------|---------------|
 | 1 |         |          |                                      |               |

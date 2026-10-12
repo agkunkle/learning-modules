@@ -33,6 +33,18 @@ Tools: `tools/module_kit/kit.py` (`new`, `excerpt`, `build`, `check`, `shot`, `p
    as `D#` (say which the module should follow, or "sources differ"); safety facts; 8 quiz
    items; glossary; and a list of tempting claims with no source (to keep out). Ask for at most
    about 500 lines: you read all of it, and longer briefs repeat themselves.
+   **Research depth** follows the kind of claim, not the kind of module:
+
+   | Claim | Depth |
+   |---|---|
+   | Code (onboarding, change, concept) | Full brief from the repo, `file:line` for every claim. Always: model memory of a repo is never good enough. |
+   | Safety, health, legal, money | Cite a source for every claim; `D#` for disagreements. |
+   | Changes often or depends on version (tools, APIs, products, prices) | Fetch current official docs; cite them with the access date. |
+   | Disputed or often-misstated detail | Spot-check two sources; record a `D#`. |
+   | Stable, well-known craft (e.g. film grammar) | Write from model knowledge, tagged `[M]` in the brief; no fetching. Add a short "further reading" list. |
+
+   Tell the subagent which rows apply and research only those; you write the `[M]` parts. A brief
+   that is mostly `[M]` is short (about 250-300 lines).
 3. **Outline for approval.** `kit.py new <module>` creates `plan.md` from a template. Fill it
    (objectives, sections, rich elements, checks per section, review quiz) and **show it to the
    user before you build**. (The robodog pilot was the only exception.)
